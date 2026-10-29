@@ -51,10 +51,11 @@ jobs:
           key: news-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Preparar archivos públicos
         run: |
-          mkdir -p _site/data _site/lib
-          cp index.html styles.css app.js favicon.svg manifest.webmanifest .nojekyll _site/
+          mkdir -p _site/data _site/lib _site/icons
+          cp index.html styles.css app.js ui.js service-worker.js favicon.svg manifest.webmanifest .nojekyll _site/
           cp data/*.json _site/data/
           cp lib/*.js _site/lib/
+          cp icons/*.png _site/icons/
       - uses: actions/configure-pages@v5
         with:
           enablement: true

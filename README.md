@@ -1,6 +1,6 @@
 # Extra Extra
 
-**Tu quiosco, a tu manera.** Un lector RSS gratuito, tranquilo y sin cuentas, inspirado en los antiguos lectores de feeds y en Google Currents.
+Un lector RSS gratuito y sin cuentas, inspirado en los antiguos lectores de feeds y en Google Currents.
 
 ## Qué incluye
 
@@ -48,7 +48,7 @@ Documentación: [programación de Actions](https://docs.github.com/en/actions/re
 
 Edita `data/sources.json`. Cada entrada tiene `id` único, `name`, `url`, `feed`, `language`, `region` y `category`. Usa un RSS/Atom público del editor y comprueba sus condiciones antes de incluirlo en una publicación pública. La disponibilidad de un RSS no equivale por sí sola a una licencia de redistribución. La atribución y los enlaces permanecen visibles.
 
-Algunos medios cambian sus RSS, los bloquean o dejan de mantenerlos. La interfaz muestra «Sin respuesta», sin inventar noticias. OPML reconoce medios del catálogo e informa de los pendientes. No añade URLs arbitrarias al servidor: las nuevas fuentes deben incorporarse al catálogo del repositorio.
+Algunos medios cambian sus RSS, los bloquean o dejan de mantenerlos. La interfaz muestra «No disponible», sin inventar noticias. OPML reconoce medios del catálogo e informa de los pendientes. No añade URLs arbitrarias al servidor: las nuevas fuentes deben incorporarse al catálogo del repositorio.
 
 ## Privacidad y límites
 
@@ -57,3 +57,18 @@ Preferencias y guardadas viven en `localStorage`, en este navegador. No hay sinc
 Las categorías y temas usan reglas locales, sin IA de pago. Pueden clasificar mal una noticia. La agrupación no detecta todas las coberturas y puede producir asociaciones erróneas. No hay acceso universal a artículos completos o de suscripción.
 
 Autor: [Alejandro Pico](https://alejandropico.github.io/Portfolio/) · [Repositorio](https://github.com/AlejandroPico/Xtraxtra)
+
+
+## Interfaz compacta e instalación (1.1)
+
+La cabecera de escritorio permanece visible al desplazarse. La búsqueda y Leer después están en ella; Filtros reúne presentación, orden, periodo, idioma y agrupación. La franja inferior muestra la fecha y la hora real de la edición, con actualización manual. Secciones y radar preceden directamente a las noticias. El mosaico calcula las columnas según el ancho disponible y conserva el orden de prioridad en la primera fila.
+
+En pantallas de hasta 760 px, las mismas herramientas pasan a un menú lateral izquierdo. El botón de hamburguesa permanece fijo; dentro del menú aparece el favicon para cerrarlo. También se cierra con el botón, al tocar fuera, con Escape o al deslizar hacia la izquierda. Un arrastre vertical suficiente al principio de la portada actualiza la edición; no se activa en los controles ni al desplazar las listas de secciones y temas.
+
+Los marcadores sobre las imágenes guardan para Leer después. En noticias sin imagen siguen disponibles sobre el titular. Las coberturas comparables se muestran sobre la imagen. La hora aparece junto al nombre del medio, sin barra inferior. El modo noche utiliza azules oscuros y grises azulados; mañana y tarde mantienen sus paletas.
+
+La web incluye manifiesto con identidad estable, PNG de 192/512 px, icono adaptable y apple-touch-icon, junto a un service worker limitado a esta ruta del proyecto. En Android, Instalar usa la oferta del navegador cuando está disponible. En iPhone/iPad se muestran instrucciones para Compartir → Añadir a pantalla de inicio. La instalación depende del navegador y se completa desde el dispositivo; no se publica en Play Store ni App Store.
+
+La primera visita con conexión guarda la aplicación y la última edición. Sin red se puede abrir la portada y el texto ya disponible; no se descargan todas las imágenes. La caché sustituye la edición anterior en vez de guardar una copia por cada actualización. Al recuperar conexión se solicita la edición publicada más reciente. Las guardadas de la versión anterior se conservan.
+
+Las pruebas cubren reconocimiento de gestos (sin confundir desplazamientos horizontales o verticales del menú), formato de iconos e identificación de instalación, y recuperación sin red con claves de caché estables. La revisión de navegador comprueba vistas de escritorio y móvil; no sustituye una instalación real en Android y iOS.

@@ -1,12 +1,12 @@
 {
   "name": "extra-extra",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "python -m http.server 4173 --bind 127.0.0.1",
     "collect": "python scripts/collect.py",
     "test": "node --test tests/*.test.js && python -m unittest discover -s tests -p test_*.py",
-    "check": "node --check app.js && node --check lib/news.js"
+    "check": "node --check app.js && node --check ui.js && node --check service-worker.js && node --check lib/news.js"
   }
 }

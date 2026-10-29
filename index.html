@@ -2,47 +2,56 @@
 <html lang="es" data-theme="morning">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#f8f6f1">
-  <meta name="description" content="Extra Extra. Tu pequeño quiosco de Internet: las noticias de tus medios, reunidas en un lugar tranquilo.">
-  <title>Extra Extra — Tu quiosco, a tu manera</title>
+  <meta name="description" content="Lector de noticias RSS con selección de medios, temas y lectura sin distracciones.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Extra Extra">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <title>Extra Extra — Noticias</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
   <script type="module" src="app.js"></script>
 </head>
 <body>
   <a href="#news" class="skip-link">Saltar a las noticias</a>
+  <button id="menu-toggle" class="menu-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobile-menu"><span data-icon="menu"></span></button>
   <header class="topbar">
-    <a class="brand" href="./" aria-label="Extra Extra, portada"><img src="favicon.svg" alt="" width="36" height="36"><span>extra extra<span class="brand-dot">.</span></span></a>
-    <nav class="tools" aria-label="Herramientas">
-      <button data-panel="sources" title="Elegir medios"><span data-icon="rss"></span><span>Medios</span></button>
-      <button data-panel="filters" title="Filtrar noticias"><span data-icon="filter"></span><span>Filtros</span><i id="filter-dot" hidden></i></button>
-      <button data-panel="appearance" title="Aspecto y lectura"><span data-icon="type"></span><span class="tool-label">Lectura</span></button>
-      <button data-panel="about" title="Acerca de Extra Extra" aria-label="Acerca de Extra Extra"><span data-icon="info"></span></button>
-    </nav>
+    <a class="brand" href="./" aria-label="Extra Extra, portada"><img src="favicon.svg" alt="" width="34" height="34"><span>Extra Extra</span></a>
+    <div id="desktop-tools-host">
+      <nav id="tools" class="tools" aria-label="Herramientas">
+        <button data-panel="search" aria-label="Buscar noticias" title="Buscar noticias"><span data-icon="search"></span><span class="mobile-tool-label">Buscar</span></button>
+        <button id="saved-toggle" aria-label="Ver noticias para leer después" title="Para leer después" aria-pressed="false"><span data-icon="bookmark"></span><span class="mobile-tool-label">Leer después</span><span id="saved-count" class="count"></span></button>
+        <button data-panel="sources" title="Elegir medios"><span data-icon="rss"></span><span>Medios</span></button>
+        <button data-panel="filters" title="Filtros y presentación"><span data-icon="filter"></span><span>Filtros</span><i id="filter-dot" hidden></i></button>
+        <button data-panel="appearance" title="Aspecto y lectura"><span data-icon="type"></span><span>Lectura</span></button>
+        <button id="install-app" title="Instalar aplicación"><span data-icon="install"></span><span>Instalar</span></button>
+        <button data-panel="about" aria-label="Acerca de Extra Extra" title="Acerca de Extra Extra"><span data-icon="info"></span><span class="mobile-tool-label">Acerca de</span></button>
+        <button id="menu-refresh" class="mobile-refresh" title="Actualizar portada"><span data-icon="refresh"></span><span>Actualizar portada</span></button>
+      </nav>
+    </div>
   </header>
   <main class="page">
-    <div class="edition"><span id="edition-date"></span><span class="edition-note">UN PEQUEÑO QUIOSCO. MUCHAS MIRADAS.</span><span>EDICIÓN PERSONAL</span></div>
-    <section class="masthead" aria-labelledby="masthead-title">
-      <div><p class="eyebrow">EL MUNDO SIGUE. TÚ ELIGES EL RITMO.</p><h1 id="masthead-title">Extra, <em>extra.</em></h1><p class="tagline">Lo que pasa, desde donde tú quieres verlo.</p></div>
-      <div class="masthead-side"><span class="live-line"><i></i> TU QUIOSCO DIGITAL</span><p>Distintos medios.<br>Un lugar para entender.</p><button id="refresh" class="text-button"><span data-icon="refresh"></span> Actualizar portada</button></div>
-    </section>
+    <div class="edition">
+      <time id="edition-date"></time>
+      <div class="edition-updates"><span class="edition-status"><span data-icon="clock"></span><span id="update-status" role="status">Cargando edición…</span></span><button id="refresh" class="text-button" title="Actualizar portada"><span data-icon="refresh"></span><span>Actualizar portada</span></button></div>
+    </div>
     <nav id="categories" class="categories" aria-label="Secciones"></nav>
-    <section class="desk" aria-label="Tu portada">
-      <div class="desk-heading"><div class="section-label"><span class="section-marker"></span><h2 id="section-title">Tu portada</h2><span id="story-count"></span></div><div class="desk-actions"><button id="saved-toggle" aria-label="Ver noticias guardadas" class="quiet-button" aria-pressed="false"><span data-icon="bookmark"></span><span>Guardadas</span><span id="saved-count"></span></button><span class="separator"></span><div class="view-switch" role="group" aria-label="Presentación"><button data-view="mosaic" aria-label="Vista mosaico" title="Mosaico"><span data-icon="grid"></span></button><button data-view="cards" aria-label="Vista tarjetas" title="Tarjetas"><span data-icon="cards"></span></button><button data-view="list" aria-label="Vista lista" title="Lista"><span data-icon="list"></span></button></div></div></div>
-      <div class="discovery"><label class="search"><span data-icon="search"></span><input id="search" type="search" placeholder="Busca una noticia, un tema, una palabra…" aria-label="Buscar noticias"><kbd>/</kbd></label><label class="sort-label"><span>Ordenar</span><select id="sort" aria-label="Ordenar noticias"><option value="relevance">Por relevancia</option><option value="newest">Más recientes</option><option value="coverage">Más cobertura</option></select></label></div>
-      <div class="topic-line"><span class="topic-caption">EN EL RADAR</span><div id="topics" class="topics"></div></div>
+    <div class="topic-line"><span class="topic-caption">EN EL RADAR</span><div id="topics" class="topics"></div></div>
+    <section class="desk" aria-label="Noticias">
+      <div class="results-bar"><h1 id="section-title">Portada</h1><span id="story-count"></span></div>
       <div id="active-filters" class="active-filters" hidden></div>
-      <div class="update-line"><span id="update-status" role="status">Abriendo el quiosco…</span><label class="group-label"><input type="checkbox" id="group" checked> Agrupar coberturas similares</label></div>
       <div id="notice" class="notice" role="status" hidden></div>
-      <div id="news" class="news mosaic" aria-busy="true" tabindex="-1"><div class="loading-state">Preparando tu portada…</div></div>
-      <div class="pagination"><button id="load-more" class="outline-button" hidden>Seguir leyendo <span aria-hidden="true">↓</span></button><span id="end-note"></span></div>
+      <div id="news" class="news mosaic" aria-busy="true" tabindex="-1"><div class="loading-state">Cargando noticias…</div></div>
+      <div class="pagination"><button id="load-more" class="outline-button" hidden>Más noticias <span aria-hidden="true">↓</span></button><span id="end-note"></span></div>
     </section>
-    <footer><span><b>extra extra.</b> Un poco de perspectiva.</span><span>Hecho para leer con calma. <button data-panel="about" class="text-button">Acerca del proyecto <span aria-hidden="true">↗</span></button></span></footer>
   </main>
-  <dialog id="panel" class="panel" aria-labelledby="panel-title"><div class="panel-header"><div><p id="panel-kicker" class="eyebrow"></p><h2 id="panel-title"></h2></div><button class="icon-button" id="close-panel" aria-label="Cerrar panel"><span data-icon="close"></span></button></div><div id="panel-content"></div></dialog>
-  <dialog id="reader" class="reader" aria-label="Leer noticia"><div class="reader-toolbar"><span class="reader-brand">extra extra.</span><div><button id="reader-save" class="icon-button" aria-label="Guardar noticia"><span data-icon="bookmark"></span></button><button id="close-reader" class="icon-button" aria-label="Cerrar lectura"><span data-icon="close"></span></button></div></div><article id="reader-content"></article></dialog>
+  <dialog id="mobile-menu" class="mobile-menu" aria-labelledby="mobile-menu-title"><div class="mobile-menu-header"><button id="menu-favicon" aria-label="Cerrar menú"><img src="favicon.svg" width="36" height="36" alt=""></button><h2 id="mobile-menu-title">Extra Extra</h2><button id="close-menu" class="icon-button" aria-label="Cerrar menú lateral"><span data-icon="close"></span></button></div><div id="mobile-tools-host"></div><div class="mobile-menu-status" id="mobile-menu-status"></div></dialog>
+  <dialog id="panel" class="panel" aria-labelledby="panel-title"><div class="panel-header"><h2 id="panel-title"></h2><button class="icon-button" id="close-panel" aria-label="Cerrar panel"><span data-icon="close"></span></button></div><div id="panel-content"></div></dialog>
+  <dialog id="reader" class="reader" aria-label="Leer noticia"><div class="reader-toolbar"><span class="reader-brand">Extra Extra</span><div><button id="reader-save" class="icon-button" aria-label="Guardar para leer después"><span data-icon="bookmark"></span></button><button id="close-reader" class="icon-button" aria-label="Cerrar lectura"><span data-icon="close"></span></button></div></div><article id="reader-content"></article></dialog>
+  <div id="pull-refresh" class="pull-refresh" role="status" hidden><span data-icon="refresh"></span><span id="pull-label">Arrastra para actualizar</span></div>
   <div id="toast" role="status" class="toast" hidden></div>
 </body>
 </html>
