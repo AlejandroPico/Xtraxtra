@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <title>Extra Extra — el pequeño vendedor de periódicos</title>
+  <rect width="128" height="128" rx="30" fill="#944333"/>
+  <g fill="#faf3e4" stroke="#faf3e4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 111l7-33 17-9 19 4 12 33-21 6z" stroke-width="3"/>
+    <path d="M69 78l16-18 7-24 9 3-6 29-17 25" stroke-width="8" fill="none"/>
+    <path d="M39 85l-10 14-8-8" stroke-width="9" fill="none"/>
+    <path d="M49 61l1 13 12 5 7-10-5-12" stroke-width="2"/>
+    <path d="M44 44q0-16 15-17 17 0 19 17l-1 8 7 6-9 2q-4 15-18 10-13-4-13-26" stroke-width="2"/>
+  </g>
+  <path d="M35 42q1-17 18-22 19-5 26 15l8 6-11 5-40 2z" fill="#2b302b"/>
+  <path d="M40 43q23-7 43-3" fill="none" stroke="#faf3e4" stroke-width="2.5"/>
+  <path d="M43 36q12-14 23-11" fill="none" stroke="#faf3e4" stroke-width="2" opacity=".5"/>
+  <path d="M51 76l9 10-5 11-11-17m22-5l-6 11 10 9 5-17" fill="#944333"/>
+  <path d="M60 86l4 23M44 103l-3 9" stroke="#944333" stroke-width="2.5"/>
+  <circle cx="68" cy="48" r="2" fill="#2b302b"/>
+  <path d="M74 59l5 1-5 4" fill="#944333"/>
+  <g transform="rotate(13 99 28)">
+    <rect x="79" y="10" width="35" height="32" rx="2" fill="#faf3e4" stroke="#2b302b" stroke-width="2"/>
+    <path d="M84 17h24m-24 5h24m-13 5h13m-13 4h13m-24 5h24" stroke="#944333" stroke-width="2"/>
+    <path d="M84 26h8v6h-8z" fill="#944333"/>
+  </g>
+  <path d="M89 55l6-2m-7 9h7" stroke="#faf3e4" stroke-width="2"/>
+</svg>

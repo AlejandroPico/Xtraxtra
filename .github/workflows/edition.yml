@@ -1,0 +1,65 @@
+name: Actualizar y publicar el quiosco
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '7,27,47 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: extra-extra-edition
+  cancel-in-progress: false
+jobs:
+  edition:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Comprobar la aplicación y el recolector
+        run: |
+          npm run check
+          npm test
+      - uses: actions/cache/restore@v4
+        with:
+          path: .edition-cache/news.json
+          key: news-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: news-
+      - name: Recuperar la última edición disponible
+        run: |
+          if [ -f .edition-cache/news.json ]; then cp .edition-cache/news.json data/news.json; fi
+      - name: Recoger los RSS originales
+        run: python scripts/collect.py
+      - name: Conservar la edición
+        run: |
+          mkdir -p .edition-cache
+          cp data/news.json .edition-cache/news.json
+      - uses: actions/cache/save@v4
+        with:
+          path: .edition-cache/news.json
+          key: news-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Preparar archivos públicos
+        run: |
+          mkdir -p _site/data _site/lib
+          cp index.html styles.css app.js favicon.svg manifest.webmanifest .nojekyll _site/
+          cp data/*.json _site/data/
+          cp lib/*.js _site/lib/
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - uses: actions/deploy-pages@v4
+        id: deployment
