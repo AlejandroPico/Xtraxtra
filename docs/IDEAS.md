@@ -1,6 +1,6 @@
 # Ideas para Extra Extra
 
-Propuestas pendientes de selección. Los números permiten elegir mejoras sin comprometerse con toda la lista. Las funciones que impliquen sincronización, avisos en segundo plano o IA pueden necesitar infraestructura adicional; su coste se revisaría antes de implementarlas.
+Listado original de propuestas. La selección del usuario y el reparto en cuatro tandas están en [TANDAS.md](TANDAS.md). Los números se mantienen para poder referirse a cada mejora. Las funciones que impliquen sincronización, avisos en segundo plano o IA pueden necesitar infraestructura adicional; su coste se revisaría antes de implementarlas.
 
 1. **Añadir medios desde la aplicación.** Introducir una dirección RSS sin editar archivos del repositorio.
 2. **Encontrar el RSS automáticamente.** Pegar la dirección de un periódico y buscar sus canales disponibles.

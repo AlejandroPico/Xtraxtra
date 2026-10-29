@@ -72,3 +72,16 @@ La web incluye manifiesto con identidad estable, PNG de 192/512 px, icono adapta
 La primera visita con conexión guarda la aplicación y la última edición. Sin red se puede abrir la portada y el texto ya disponible; no se descargan todas las imágenes. La caché sustituye la edición anterior en vez de guardar una copia por cada actualización. Al recuperar conexión se solicita la edición publicada más reciente. Las guardadas de la versión anterior se conservan.
 
 Las pruebas cubren reconocimiento de gestos (sin confundir desplazamientos horizontales o verticales del menú), formato de iconos e identificación de instalación, y recuperación sin red con claves de caché estables. La revisión de navegador comprueba vistas de escritorio y móvil; no sustituye una instalación real en Android y iOS.
+
+
+## Tanda 1 (1.2)
+
+El plan de las 45 mejoras seleccionadas está en [docs/TANDAS.md](docs/TANDAS.md). Solo la primera tanda está implementada; las otras tres quedan pendientes.
+
+La portada utiliza una sola franja con dos áreas horizontales táctiles: secciones generales y radar. El total de noticias aparece junto a la hora de actualización. La carga añade noticias automáticamente al acercarse al final, sin botón ni pie de paginación. Las noticias se agrupan por día de calendario local, con una separación completa al pasar a ayer y fechas anteriores. El orden por relevancia o cobertura se aplica dentro de cada día. Se recorre la edición disponible, no un archivo histórico ilimitado.
+
+En Filtros se pueden guardar portadas personales, silenciar términos temporalmente, alternar medios y secciones, y elegir la densidad. Buscar admite alternativas con «o» / OR, exclusiones con «sin» / NOT / «-» y frases entre comillas. Las exclusiones afectan a toda la expresión. En Leer después también busca dentro del texto conservado.
+
+Lectura añade controles de interlineado, ancho, márgenes y separación entre párrafos, además de alto contraste, controles mayores y reducción de animaciones. El lector indica la duración aproximada del texto y avisa si se trata de un extracto; el botón de reloj permite devolver la noticia a pendientes. Portadas, silencios y ajustes se conservan en el navegador y se incluyen en la exportación/importación JSON.
+
+La instalación está dentro de Acerca de y se ofrece en móvil. La caché incluye los nuevos módulos para mantener la apertura sin conexión.

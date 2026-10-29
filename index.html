@@ -29,7 +29,6 @@
         <button data-panel="sources" title="Elegir medios"><span data-icon="rss"></span><span>Medios</span></button>
         <button data-panel="filters" title="Filtros y presentación"><span data-icon="filter"></span><span>Filtros</span><i id="filter-dot" hidden></i></button>
         <button data-panel="appearance" title="Aspecto y lectura"><span data-icon="type"></span><span>Lectura</span></button>
-        <button id="install-app" title="Instalar aplicación"><span data-icon="install"></span><span>Instalar</span></button>
         <button data-panel="about" aria-label="Acerca de Extra Extra" title="Acerca de Extra Extra"><span data-icon="info"></span><span class="mobile-tool-label">Acerca de</span></button>
         <button id="menu-refresh" class="mobile-refresh" title="Actualizar portada"><span data-icon="refresh"></span><span>Actualizar portada</span></button>
       </nav>
@@ -40,19 +39,18 @@
       <time id="edition-date"></time>
       <div class="edition-updates"><span class="edition-status"><span data-icon="clock"></span><span id="update-status" role="status">Cargando edición…</span></span><button id="refresh" class="text-button" title="Actualizar portada"><span data-icon="refresh"></span><span>Actualizar portada</span></button></div>
     </div>
-    <nav id="categories" class="categories" aria-label="Secciones"></nav>
-    <div class="topic-line"><span class="topic-caption">EN EL RADAR</span><div id="topics" class="topics"></div></div>
+    <div class="navigation-strip"><nav id="categories" class="categories" aria-label="Secciones generales"></nav><div class="topic-line"><span class="topic-caption">RADAR</span><div id="topics" class="topics" role="navigation" aria-label="Temas específicos"></div></div></div>
     <section class="desk" aria-label="Noticias">
-      <div class="results-bar"><h1 id="section-title">Portada</h1><span id="story-count"></span></div>
+      <h1 id="section-title" class="sr-only">Portada</h1><span id="story-count" class="sr-only"></span>
       <div id="active-filters" class="active-filters" hidden></div>
       <div id="notice" class="notice" role="status" hidden></div>
       <div id="news" class="news mosaic" aria-busy="true" tabindex="-1"><div class="loading-state">Cargando noticias…</div></div>
-      <div class="pagination"><button id="load-more" class="outline-button" hidden>Más noticias <span aria-hidden="true">↓</span></button><span id="end-note"></span></div>
+      <div id="load-sentinel" aria-hidden="true"></div><p id="feed-status" class="sr-only" role="status"></p>
     </section>
   </main>
   <dialog id="mobile-menu" class="mobile-menu" aria-labelledby="mobile-menu-title"><div class="mobile-menu-header"><button id="menu-favicon" aria-label="Cerrar menú"><img src="favicon.png" width="36" height="36" alt=""></button><h2 id="mobile-menu-title">Extra Extra</h2><button id="close-menu" class="icon-button" aria-label="Cerrar menú lateral"><span data-icon="close"></span></button></div><div id="mobile-tools-host"></div><div class="mobile-menu-status" id="mobile-menu-status"></div></dialog>
   <dialog id="panel" class="panel" aria-labelledby="panel-title"><div class="panel-header"><h2 id="panel-title"></h2><button class="icon-button" id="close-panel" aria-label="Cerrar panel"><span data-icon="close"></span></button></div><div id="panel-content"></div></dialog>
-  <dialog id="reader" class="reader" aria-label="Leer noticia"><div class="reader-toolbar"><span class="reader-brand">Extra Extra</span><div><button id="reader-save" class="icon-button" aria-label="Guardar para leer después"><span data-icon="bookmark"></span></button><button id="close-reader" class="icon-button" aria-label="Cerrar lectura"><span data-icon="close"></span></button></div></div><article id="reader-content"></article></dialog>
+  <dialog id="reader" class="reader" aria-label="Leer noticia"><div class="reader-toolbar"><span class="reader-brand">Extra Extra</span><div><button id="reader-pending" class="icon-button" aria-label="Volver a marcar como pendiente" title="Volver a marcar como pendiente"><span data-icon="clock"></span></button><button id="reader-save" class="icon-button" aria-label="Guardar para leer después"><span data-icon="bookmark"></span></button><button id="close-reader" class="icon-button" aria-label="Cerrar lectura"><span data-icon="close"></span></button></div></div><article id="reader-content"></article></dialog>
   <div id="pull-refresh" class="pull-refresh" role="status" hidden><span data-icon="refresh"></span><span id="pull-label">Arrastra para actualizar</span></div>
   <div id="toast" role="status" class="toast" hidden></div>
 </body>

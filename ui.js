@@ -10,7 +10,7 @@ export function layoutNews() {
   for (const story of news.querySelectorAll('.story')) story.style.gridRowEnd = '';
   if (!news.classList.contains('mosaic') || !('ResizeObserver' in window)) return;
   const measure = story => {
-    const style = getComputedStyle(news);
+    const style = getComputedStyle(story.closest('.news-group') || news);
     const row = parseFloat(style.gridAutoRows), gap = parseFloat(style.rowGap);
     const span = Math.ceil((story.getBoundingClientRect().height + gap) / (row + gap));
     if (Number.isFinite(span) && span > 0) story.style.gridRowEnd = `span ${span}`;
@@ -19,7 +19,7 @@ export function layoutNews() {
   news.querySelectorAll('.story').forEach(story => {measure(story);masonryObserver.observe(story);});
 }
 
-export function initInterface({openPanel, refresh}) {
+export function initInterface({openPanel, refresh, loadMore}) {
   const mobile = matchMedia('(max-width: 760px)'), menu = $('#mobile-menu'), trigger = $('#menu-toggle');
   function syncTools() {
     closeMenu();
@@ -65,14 +65,22 @@ export function initInterface({openPanel, refresh}) {
 
   let installPrompt;
   const installed=()=>matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;
-  const installButton=$('#install-app');
-  installButton.hidden=installed();
-  window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;installButton.hidden=installed();});
-  window.addEventListener('appinstalled',()=>{installPrompt=null;installButton.hidden=true;});
-  installButton.onclick=async()=>{
+  const installState=()=>{const button=$('#install-app');if(button)button.hidden=installed();};
+  window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();installPrompt=event;installState();});
+  window.addEventListener('appinstalled',()=>{installPrompt=null;installState();});
+  document.addEventListener('click',async event=>{
+    if(!event.target.closest('#install-app'))return;
     closeMenu();
     if(installPrompt){const prompt=installPrompt;installPrompt=null;await prompt.prompt();await prompt.userChoice;}
     else openPanel('install');
-  };
+  });
+  if('IntersectionObserver' in window){
+    const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting))loadMore();},{rootMargin:'0px 0px 800px 0px'});
+    observer.observe($('#load-sentinel'));
+  }else{
+    window.addEventListener('scroll',()=>{if($('#load-sentinel').getBoundingClientRect().top<innerHeight+800)loadMore();},{passive:true});
+  }
+  // An observer may have fired while a modal was open. Resume at its close.
+  document.addEventListener('close',()=>requestAnimationFrame(()=>{if($('#load-sentinel').getBoundingClientRect().top<innerHeight+800)loadMore();}),true);
   if('serviceWorker' in navigator)navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
 }
