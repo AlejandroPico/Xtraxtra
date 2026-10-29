@@ -20,3 +20,5 @@
  .panel{width:calc(100% - 20px);max-height:calc(100dvh - 24px - env(safe-area-inset-top));border-radius:7px}.panel-header{padding:17px 18px}.panel-header h2{font-size:19px}#panel-content{padding:18px}.panel-header .icon-button{min-height:40px;min-width:40px}.choice-row button{padding:11px;font-size:11px}.source-row{font-size:12px;gap:7px}.source-info small{font-size:8px}.source-row input{width:17px;height:17px}.health{font-size:7px}.reader h1{font-size:30px}#reader-content{padding:27px 6%}.reader-toolbar{padding:8px 15px}.reader-toolbar .icon-button{min-height:40px;min-width:40px}.reader-brand{font-size:18px}.toast{bottom:calc(16px + env(safe-area-inset-bottom));width:max-content;max-width:calc(100% - 24px);font-size:11px;text-align:center}.choice-row button svg{width:15px;height:15px}.pagination{padding-bottom:env(safe-area-inset-bottom)}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
+.brand img,.mobile-menu-header img{border-radius:7px}.about-hero img{border-radius:14px}

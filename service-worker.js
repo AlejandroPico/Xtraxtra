@@ -1,6 +1,6 @@
-const CACHE = 'extra-extra-v2';
+const CACHE = 'extra-extra-v3';
 const ROOT = new URL('./', self.location.href);
-const FILES = ['./','index.html','styles.css','app.js','ui.js','lib/news.js','lib/gestures.js','favicon.svg','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/maskable-512.png','icons/apple-touch-icon.png','data/sources.json','data/news.json'];
+const FILES = ['./','index.html','styles.css','app.js','ui.js','lib/news.js','lib/gestures.js','favicon.png','favicon-32.png','favicon.ico','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/maskable-512.png','icons/apple-touch-icon.png','data/sources.json','data/news.json'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(path=>new URL(path,ROOT).href))).then(()=>self.skipWaiting()));

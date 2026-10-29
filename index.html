@@ -9,7 +9,9 @@
   <meta name="apple-mobile-web-app-title" content="Extra Extra">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <title>Extra Extra — Noticias</title>
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="icon" href="favicon.png" type="image/png" sizes="192x192">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="styles.css">
@@ -19,7 +21,7 @@
   <a href="#news" class="skip-link">Saltar a las noticias</a>
   <button id="menu-toggle" class="menu-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="mobile-menu"><span data-icon="menu"></span></button>
   <header class="topbar">
-    <a class="brand" href="./" aria-label="Extra Extra, portada"><img src="favicon.svg" alt="" width="34" height="34"><span>Extra Extra</span></a>
+    <a class="brand" href="./" aria-label="Extra Extra, portada"><img src="favicon.png" alt="" width="34" height="34"><span>Extra Extra</span></a>
     <div id="desktop-tools-host">
       <nav id="tools" class="tools" aria-label="Herramientas">
         <button data-panel="search" aria-label="Buscar noticias" title="Buscar noticias"><span data-icon="search"></span><span class="mobile-tool-label">Buscar</span></button>
@@ -48,7 +50,7 @@
       <div class="pagination"><button id="load-more" class="outline-button" hidden>Más noticias <span aria-hidden="true">↓</span></button><span id="end-note"></span></div>
     </section>
   </main>
-  <dialog id="mobile-menu" class="mobile-menu" aria-labelledby="mobile-menu-title"><div class="mobile-menu-header"><button id="menu-favicon" aria-label="Cerrar menú"><img src="favicon.svg" width="36" height="36" alt=""></button><h2 id="mobile-menu-title">Extra Extra</h2><button id="close-menu" class="icon-button" aria-label="Cerrar menú lateral"><span data-icon="close"></span></button></div><div id="mobile-tools-host"></div><div class="mobile-menu-status" id="mobile-menu-status"></div></dialog>
+  <dialog id="mobile-menu" class="mobile-menu" aria-labelledby="mobile-menu-title"><div class="mobile-menu-header"><button id="menu-favicon" aria-label="Cerrar menú"><img src="favicon.png" width="36" height="36" alt=""></button><h2 id="mobile-menu-title">Extra Extra</h2><button id="close-menu" class="icon-button" aria-label="Cerrar menú lateral"><span data-icon="close"></span></button></div><div id="mobile-tools-host"></div><div class="mobile-menu-status" id="mobile-menu-status"></div></dialog>
   <dialog id="panel" class="panel" aria-labelledby="panel-title"><div class="panel-header"><h2 id="panel-title"></h2><button class="icon-button" id="close-panel" aria-label="Cerrar panel"><span data-icon="close"></span></button></div><div id="panel-content"></div></dialog>
   <dialog id="reader" class="reader" aria-label="Leer noticia"><div class="reader-toolbar"><span class="reader-brand">Extra Extra</span><div><button id="reader-save" class="icon-button" aria-label="Guardar para leer después"><span data-icon="bookmark"></span></button><button id="close-reader" class="icon-button" aria-label="Cerrar lectura"><span data-icon="close"></span></button></div></div><article id="reader-content"></article></dialog>
   <div id="pull-refresh" class="pull-refresh" role="status" hidden><span data-icon="refresh"></span><span id="pull-label">Arrastra para actualizar</span></div>

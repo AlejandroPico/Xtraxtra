@@ -14,7 +14,7 @@ Un lector RSS gratuito y sin cuentas, inspirado en los antiguos lectores de feed
 - Temas mañana, tarde, noche y automático; seis tipografías, tamaño de lectura e imágenes opcionales.
 - Guardadas con copia del texto, historial local, exportación/importación JSON y OPML para las suscripciones del catálogo.
 - Estado de cada fuente, fecha de edición y aviso de retraso. Si falla una fuente, conserva noticias de la edición anterior hasta siete días.
-- Favicon vectorial original en la raíz: un joven vendedor de periódicos con boina.
+- Favicon ilustrado en la raíz: un joven vendedor de periódicos con boina, con versiones para navegador, Android e iOS.
 
 ## Ejecutar
 

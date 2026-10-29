@@ -52,7 +52,7 @@ jobs:
       - name: Preparar archivos públicos
         run: |
           mkdir -p _site/data _site/lib _site/icons
-          cp index.html styles.css app.js ui.js service-worker.js favicon.svg manifest.webmanifest .nojekyll _site/
+          cp index.html styles.css app.js ui.js service-worker.js favicon.png favicon-32.png favicon.ico manifest.webmanifest .nojekyll _site/
           cp data/*.json _site/data/
           cp lib/*.js _site/lib/
           cp icons/*.png _site/icons/
