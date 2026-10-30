@@ -31,11 +31,11 @@ test('La aplicación instala iconos PNG reales, incluido el de iOS y el adaptabl
 test('La caché conserva la edición sin multiplicar entradas por los parámetros de actualización',async()=>{
   const handlers={},cached=new Map();let offline=false;
   const cache={
-    addAll:async urls=>{for(const url of urls){const path=new URL(url).pathname.slice('/Xtraxtra/'.length)||'index.html';assert.ok(existsSync(new URL('../'+path,import.meta.url)),path);cached.set(url,new Response(path));}},
+    addAll:async requests=>{for(const request of requests){assert.equal(request.cache,'no-cache');const url=request.url;const path=new URL(url).pathname.slice('/Xtraxtra/'.length)||'index.html';assert.ok(existsSync(new URL('../'+path,import.meta.url)),path);cached.set(url,new Response(path));}},
     match:async key=>cached.get(typeof key==='string'?key:key.url)?.clone(),
     put:async(key,value)=>cached.set(typeof key==='string'?key:key.url,value),
   };
-  const sandbox={URL,Request,Response,caches:{open:async()=>cache,keys:async()=>[],delete:async()=>true},fetch:async()=>{if(offline)throw new Error('offline');return new Response('latest news');},self:{location:{href:'https://example.test/Xtraxtra/service-worker.js'},addEventListener:(type,handler)=>handlers[type]=handler,skipWaiting:async()=>{},clients:{claim:async()=>{}}}};
+  const sandbox={URL,Request,Response,caches:{open:async()=>cache,keys:async()=>[],delete:async()=>true},fetch:async(request,options)=>{assert.equal(options.cache,'no-cache');if(offline)throw new Error('offline');return new Response('latest news');},self:{location:{href:'https://example.test/Xtraxtra/service-worker.js'},addEventListener:(type,handler)=>handlers[type]=handler,skipWaiting:async()=>{},clients:{claim:async()=>{}}}};
   vm.runInNewContext(readFileSync(new URL('../service-worker.js',import.meta.url),'utf8'),sandbox);
   let installed;handlers.install({waitUntil:promise=>installed=promise});await installed;
   const request=async url=>{let response;handlers.fetch({request:new Request(url),respondWith:promise=>response=promise});return response;};

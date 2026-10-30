@@ -1,9 +1,9 @@
-const CACHE = 'extra-extra-v5';
+const CACHE = 'extra-extra-v6';
 const ROOT = new URL('./', self.location.href);
 const FILES = ['./','index.html','styles.css','app.js','ui.js','lib/news.js','lib/gestures.js','lib/search.js','lib/edition.js','lib/preferences.js','lib/feeds.js','lib/geography.js','lib/world-territories.js','lib/media-panel.js','favicon.png','favicon-32.png','favicon.ico','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/maskable-512.png','icons/apple-touch-icon.png','data/sources.json','data/news.json'];
 
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(path=>new URL(path,ROOT).href))).then(()=>self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(path=>new Request(new URL(path,ROOT).href,{cache:'no-cache'})))).then(()=>self.skipWaiting()));
 });
 self.addEventListener('activate',event=>{
   event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('extra-extra-') && key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
@@ -17,7 +17,8 @@ self.addEventListener('fetch',event=>{
   event.respondWith((async()=>{
     const cache=await caches.open(CACHE);
     try{
-      const response=await fetch(event.request);
+      // Revalidate the HTTP cache as well as our offline cache after a deployment.
+      const response=await fetch(event.request,{cache:'no-cache'});
       if(!response.ok)throw new Error('Unavailable');
       // A full device cache must not hide a successful network response.
       await cache.put(canonical,response.clone()).catch(()=>{});
