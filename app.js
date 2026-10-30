@@ -234,6 +234,7 @@ async function liveRefresh(manual=false,ids=null) {
   if(!targets.length){lastLiveCheck=Date.now();render();scheduleAutomatic();return;}
   lastLiveCheck=Date.now();clearTimeout(automaticTimer);liveBusy=true;serviceProblem='';$('#refresh').disabled=true;let completed=0,success=0,index=0;
   const previousIDs=new Set(data.articles.map(a=>a.id));
+  if(!data.generated||Date.now()-Date.parse(data.generated)>20*60000){$('#notice').hidden=false;$('#notice').textContent='Comprobando los RSS para actualizar la edición…';}
   const progress=()=>{liveProgress=`Actualizando medios ${completed}/${targets.length}…`;$('#update-status').textContent=liveProgress;$('#mobile-menu-status').textContent=liveProgress;};progress();
   try{
     const workers=Array.from({length:Math.min(5,targets.length)},async()=>{while(index<targets.length){const id=targets[index++];if(await refreshSource(id))success++;completed++;progress();}});
