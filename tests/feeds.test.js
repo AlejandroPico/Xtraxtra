@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {feedURL,sourceSettings,mergeSources,articleID} from '../lib/feeds.js';
+import {feedURL,sourceSettings,mergeSources,keepNewerFeed,articleID} from '../lib/feeds.js';
 import {articleTerritories,matchesTerritory} from '../lib/geography.js';
 import {organizeEdition} from '../lib/edition.js';
 
@@ -11,6 +11,12 @@ test('RSS personales: conserva idiomas, carpetas y prioridades y rechaza direcci
 });
 test('Las direcciones RSS se normalizan, sin credenciales ni fragmentos',()=>{
   assert.equal(feedURL('https://user:password@example.org/rss'),'');assert.equal(feedURL('file:///etc/passwd'),'');assert.equal(feedURL('/rss#section','https://example.org/'),'https://example.org/rss');
+});
+test('Una caché de RSS anterior no sustituye noticias más recientes ni impide reparar un feed',()=>{
+  const feed='https://example.org/rss',previous={lastSuccess:'2026-10-30T02:10:00Z'},older={feed,lastSuccess:'2026-10-30T02:05:00Z'};
+  assert.equal(keepNewerFeed(previous,older,feed),true);
+  assert.equal(keepNewerFeed(previous,{...older,lastSuccess:'2026-10-30T02:12:00Z'},feed),false);
+  assert.equal(keepNewerFeed(previous,{...older,feed:'https://example.org/new-rss'},feed),false);
 });
 test('La huella de una noticia es compatible con el recolector de Python',async()=>{
   assert.equal(await articleID('https://example.org/news'),'613455beda145c1523ce');

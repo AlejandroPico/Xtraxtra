@@ -1,4 +1,4 @@
-import {languages,sourceSettings,mergeSources,parseFeed,feedMetadata,readSnapshots,saveSnapshot,removeSnapshot} from './lib/feeds.js';
+import {languages,sourceSettings,mergeSources,keepNewerFeed,parseFeed,feedMetadata,readSnapshots,saveSnapshot,removeSnapshot} from './lib/feeds.js';
 import {territories,matchesTerritory} from './lib/geography.js';
 import {createMediaPanel} from './lib/media-panel.js';
 import { categories, normalize, categoryOf, groupArticles, score, relatedTopics, filterArticles, safeURL, escapeHTML as esc } from './lib/news.js';
@@ -210,9 +210,15 @@ async function refreshSource(id) {
   const source=sources.find(s=>s.id===id);if(!source)return false;
   const checked=new Date().toISOString();
   try{
-    const response=await rssAPI('feed',source.feed),articles=await parseFeed(response.xml,source);
+    const response=await rssAPI('feed',source.feed),previous=data.status[id],kept=currentArticles(id);
+    if(kept.length&&keepNewerFeed(previous,{feed:source.feed,lastSuccess:response.fetchedAt},catalog.find(s=>s.id===id)?.feed)){
+      // The shared edition can be newer than an edge cache. Do not roll it back.
+      const health={...previous,feed:source.feed,checked,...(response.stale?{state:'stale',message:response.error||'El medio no ha respondido.'}:{})};
+      data.status[id]=health;await saveSnapshot({id,feed:source.feed,articles:kept,health}).catch(()=>{});return health.state==='ok';
+    }
+    const articles=await parseFeed(response.xml,source);
     if(!articles.length)throw new Error('El RSS responde, pero no contiene publicaciones de los últimos siete días.');
-    const health={state:response.stale?'stale':'ok',count:articles.length,checked,lastSuccess:response.fetchedAt,message:response.error||''};
+    const health={state:response.stale?'stale':'ok',feed:source.feed,count:articles.length,checked,lastSuccess:response.fetchedAt,message:response.error||''};
     // Source might have been removed or repaired while the request was in flight.
     if(!sources.some(s=>s.id===id&&s.feed===source.feed))return false;
     data.articles=[...data.articles.filter(a=>a.source!==id),...articles];data.status[id]=health;
