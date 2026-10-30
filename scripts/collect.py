@@ -83,7 +83,8 @@ def parse_date(value, now):
 
 def parse_feed(raw, source, now=None):
     now = now or dt.datetime.now(dt.timezone.utc)
-    if b'<!DOCTYPE' in raw.upper() or b'<!ENTITY' in raw.upper():
+    declarations = re.sub(rb'<!\[CDATA\[.*?\]\]>', b'', raw, flags=re.DOTALL).upper()
+    if b'<!DOCTYPE' in declarations or b'<!ENTITY' in declarations:
         raise ValueError('El feed contiene declaraciones XML no admitidas')
     root = ET.fromstring(raw)
     nodes = [node for node in root.iter() if local(node.tag) in ('item', 'entry')]
@@ -171,7 +172,7 @@ def main():
     if not articles:
         raise SystemExit('Ninguna fuente disponible: se conserva el archivo anterior.')
     articles.sort(key=lambda article: article.get('published') or '', reverse=True)
-    result = {'version': 1, 'generated': dt.datetime.now(dt.timezone.utc).isoformat(), 'articles': articles, 'status': status}
+    result = {'version': 1, 'generated': dt.datetime.now(dt.timezone.utc).isoformat() if any(s['state'] == 'ok' for s in status.values()) else previous.get('generated'), 'checked': dt.datetime.now(dt.timezone.utc).isoformat(), 'articles': articles, 'status': status}
     temp = path.with_suffix('.tmp')
     temp.write_text(json.dumps(result, ensure_ascii=False, separators=(',', ':')), encoding='utf-8')
     temp.replace(path)

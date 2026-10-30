@@ -1,3 +1,6 @@
+import {languages,sourceSettings,mergeSources,parseFeed,feedMetadata,readSnapshots,saveSnapshot,removeSnapshot} from './lib/feeds.js';
+import {territories,matchesTerritory} from './lib/geography.js';
+import {createMediaPanel} from './lib/media-panel.js';
 import { categories, normalize, categoryOf, groupArticles, score, relatedTopics, filterArticles, safeURL, escapeHTML as esc } from './lib/news.js';
 import { initInterface, closeMenu, layoutNews } from './ui.js';
 import {activeMutes,isMuted} from './lib/search.js';
@@ -29,13 +32,18 @@ const prefs = {
   view:['mosaic','cards','list'].includes(initial.view) ? initial.view : 'mosaic',
   font:fonts[initial.font] ? initial.font : 'Georgia', size:Math.min(28,Math.max(15,Number(initial.size) || 19)),
   images:initial.images !== false, group:initial.group !== false,
+  nearby:territories.some(t=>t.id===initial.nearby)?initial.nearby:'',
   sources:Array.isArray(initial.sources) ? initial.sources.filter(s => typeof s === 'string') : null,
 };
+let catalog=[],mediaSettings=sourceSettings(readStorage('extra-extra:media',{}));
+let liveBusy=false,lastLiveCheck=0,liveTimer,automaticTimer,serviceProblem='',liveProgress='',pendingLive=false;
+const RSS_API='https://xtraxtra-rss-apico.alejandropico.chatgpt.site/api';
+const AUTO_REFRESH=10*60000;
 let sources = [], data = { articles:[], status:{} }, visibleClusters = [], allClusters = [], limit = 36;
 let read = readStorage('extra-extra:read', []); if (!Array.isArray(read)) read = [];
 let saved = readStorage('extra-extra:saved', []); if (!Array.isArray(saved)) saved = [];
 saved = saved.filter(item => item && typeof item.id === 'string' && typeof item.title === 'string' && safeURL(item.url));
-const filters = { query:'', category:'Actualidad', language:'', hours:0, unread:false, topic:null, topicName:'' };
+const filters = { query:'', category:'Actualidad', language:'', territory:'', hours:0, unread:false, topic:null, topicName:'' };
 let savedOnly = false, panelName = '', currentArticle = null, currentCluster = null, toastTimer, searchTimer, sortOrder = 'relevance';
 let frontpages=sanitizeFrontpages(readStorage('extra-extra:frontpages',[]));
 let mutes=activeMutes(Array.isArray(readStorage('extra-extra:mutes',[]))?readStorage('extra-extra:mutes',[]):[]);
@@ -92,11 +100,11 @@ function renderCategories() {
 }
 function resetFilters() {
   activeFrontpage='';
-  Object.assign(filters, {query:'', category:'Actualidad', language:'', hours:0, unread:false, topic:null, topicName:''});
+  Object.assign(filters, {query:'', category:'Actualidad', language:'', territory:'', hours:0, unread:false, topic:null, topicName:''});
   if ($('#search')) $('#search').value = ''; limit = 36; renderCategories(); render();
 }
 function activeFilters() {
-  const labels = [savedOnly&&'Leer después',filters.query && `«${filters.query}»`, filters.language && `Idioma: ${filters.language.toUpperCase()}`, filters.hours && `Últimas ${filters.hours} h`, filters.unread && 'Sin leer', filters.topicName, prefs.sources?.length !== sources.length && `${prefs.sources?.length || 0} medios`,activeMutes(mutes).length&&`${activeMutes(mutes).length} silencios`].filter(Boolean);
+  const labels = [savedOnly&&'Leer después',filters.query && `«${filters.query}»`,filters.territory&&territories.find(t=>t.id===filters.territory)?.name,prefs.nearby&&`Cerca de ${territories.find(t=>t.id===prefs.nearby)?.name}`, filters.language && `Idioma: ${filters.language.toUpperCase()}`, filters.hours && `Últimas ${filters.hours} h`, filters.unread && 'Sin leer', filters.topicName, prefs.sources?.length !== sources.length && `${prefs.sources?.length || 0} medios`,activeMutes(mutes).length&&`${activeMutes(mutes).length} silencios`].filter(Boolean);
   const container = $('#active-filters');
   container.hidden = !labels.length;
   container.innerHTML = labels.map(label => `<span class="chip">${esc(label)}</span>`).join('') + (labels.length ? '<button id="clear-filters">Limpiar filtros</button>' : '');
@@ -166,7 +174,7 @@ function render() {
   if(!prefs.sources)return;
   const base=savedOnly?saved:data.articles;
   const filtered=filterArticles(base,{...filters,sources:savedOnly?[...new Set([...prefs.sources,...saved.map(a=>a.source)])]:prefs.sources,read,mutes,searchContent:savedOnly},sources);
-  allClusters=organizeEdition(groupArticles(filtered,prefs.group),{order:sortOrder,sourceLimit:prefs.sourceLimit,topicLimit:prefs.topicLimit,categoryFor:article=>categoryOf(article,sourceFor(article))}).flatMap(day=>day.clusters);
+  allClusters=organizeEdition(groupArticles(filtered,prefs.group),{order:sortOrder,priority:cluster=>(cluster.articles.some(a=>mediaSettings.priorities[a.source])?1.3:1)*(prefs.nearby&&cluster.articles.some(a=>matchesTerritory(a,prefs.nearby))?1.4:1),sourceLimit:prefs.sourceLimit,topicLimit:prefs.topicLimit,categoryFor:article=>categoryOf(article,sourceFor(article))}).flatMap(day=>day.clusters);
   visibleClusters=allClusters.slice(0,limit);
   $('#news').className=`news ${prefs.view}`;$('#news').setAttribute('aria-busy','false');
   $('#section-title').textContent=savedOnly?'Leer después':filters.topicName||(filters.category==='Actualidad'?'Portada':filters.category);
@@ -178,38 +186,104 @@ function render() {
   if(!allClusters.length)$('#news').innerHTML=`<div class="empty-state"><h3>${savedOnly?'No hay noticias guardadas.':!prefs.sources.length?'Selecciona algún medio.':'No hay resultados.'}</h3><p>${savedOnly?'Usa el marcador de una noticia para leerla después.':!prefs.sources.length?'Escoge los medios de tu portada.':'Prueba otra búsqueda o cambia los filtros.'}</p><button class="outline-button" ${!prefs.sources.length?'data-panel="sources"':'id="reset-empty"'}>${!prefs.sources.length?'Elegir medios':'Limpiar filtros'}</button></div>`;
   const last=data.generated?new Intl.DateTimeFormat('es',{hour:'2-digit',minute:'2-digit'}).format(new Date(data.generated)):'—';
   const available=Object.values(data.status).filter(s=>s.state==='ok').length;
-  $('#update-status').textContent=`Actualizado ${last} · ${available}/${sources.length} medios · ${allClusters.length} noticias`;
+  $('#update-status').textContent=liveProgress||`Actualizado ${last} · ${available}/${sources.length} medios · ${allClusters.length} noticias`;
   $('#mobile-menu-status').textContent=`${data.generated?`Actualizado ${dateLabel(data.generated)}`:'Sin edición'} · ${available}/${sources.length} medios · ${allClusters.length} noticias`;
-  const stale=data.generated&&Date.now()-Date.parse(data.generated)>60*60000;
-  $('#notice').hidden=!stale&&navigator.onLine;
+  const stale=data.generated&&Date.now()-Date.parse(data.generated)>20*60000;
+  $('#notice').hidden=!stale&&!serviceProblem&&navigator.onLine;
   if(!navigator.onLine)$('#notice').textContent='Sin conexión. Mostrando la última edición guardada.';
-  else if(stale)$('#notice').textContent=`La última edición es del ${dateLabel(data.generated)}. La recogida puede estar retrasada.`;
+  else if(stale)$('#notice').textContent=liveBusy?'Comprobando los RSS para actualizar la edición…':`La última recogida correcta es del ${dateLabel(data.generated)}. ${serviceProblem||'Pulsa Actualizar portada para reintentar.'}`;
+  else if(serviceProblem)$('#notice').textContent=serviceProblem;
   $('#update-status').title=`Edición del ${dateLabel(data.generated)}. ${sources.length-available} fuentes no disponibles; consulta Medios.`;
   activeFilters();renderTopics();
+  if(panelName==='sources'&&$('#panel').open)mediaPanel.draw();
   if(limit<allClusters.length && $('#load-sentinel').getBoundingClientRect().top<innerHeight+800)setTimeout(loadMoreStories,80);
 }
-async function loadNews(manual = false) {
-  const refresh = $('#refresh'); refresh.disabled = true;
-  try {
-    const [catalogResponse, newsResponse] = await Promise.all([fetch(`data/sources.json?t=${Date.now()}`,{cache:'no-store'}),fetch(`data/news.json?t=${Date.now()}`,{cache:'no-store'})]);
-    if (!catalogResponse.ok || !newsResponse.ok) throw new Error('No se pudo descargar la edición.');
-    const catalog = await catalogResponse.json(), edition = await newsResponse.json();
-    if (!Array.isArray(catalog) || !Array.isArray(edition.articles)) throw new Error('La edición no tiene el formato esperado.');
-    const previous = data.generated;
-    sources = catalog; data = edition;
-    prefs.sources = prefs.sources === null ? sources.map(s=>s.id) : prefs.sources.filter(id=>sources.some(s=>s.id===id));
-    if(previous!==data.generated||!$('#news .story'))render();
-    if (manual) toast(!navigator.onLine ? 'Sin conexión. Mostrando la última edición guardada.' : previous === data.generated ? 'No hay una edición más reciente.' : 'Portada actualizada.');
-  } catch(error) {
-    $('#news').setAttribute('aria-busy','false');
-    $('#notice').hidden = false;
-    $('#notice').textContent = 'No se ha podido descargar la portada. Comprueba tu conexión y pulsa Actualizar portada para reintentar.';
-    if (!data.articles.length) {
-      $('#news').innerHTML = '<div class="empty-state"><h3>Edición no disponible.</h3><p>La edición no está disponible. Vuelve a actualizar en unos instantes.</p></div>';
-      $('#update-status').textContent = 'Sin conexión con la edición';
-    }
-  } finally { refresh.disabled = false; }
+async function rssAPI(operation,url) {
+  let response;
+  try{response=await fetch(`${RSS_API}/${operation}?url=${encodeURIComponent(url||'')}`,{signal:AbortSignal.timeout(operation==='discover'?45000:20000),cache:'no-store',credentials:'omit'});}catch{throw new Error('No se ha podido conectar con el servicio RSS. Conservamos la última edición disponible.');}
+  const result=await response.json().catch(()=>null);
+  if(!response.ok||!result)throw new Error(result?.error||'El servicio RSS no está disponible.');
+  return result;
 }
+function currentArticles(id) {return data.articles.filter(a=>a.source===id&&(!a.published||Date.now()-Date.parse(a.published)<7*86400000));}
+async function refreshSource(id) {
+  const source=sources.find(s=>s.id===id);if(!source)return false;
+  const checked=new Date().toISOString();
+  try{
+    const response=await rssAPI('feed',source.feed),articles=await parseFeed(response.xml,source);
+    if(!articles.length)throw new Error('El RSS responde, pero no contiene publicaciones de los últimos siete días.');
+    const health={state:response.stale?'stale':'ok',count:articles.length,checked,lastSuccess:response.fetchedAt,message:response.error||''};
+    // Source might have been removed or repaired while the request was in flight.
+    if(!sources.some(s=>s.id===id&&s.feed===source.feed))return false;
+    data.articles=[...data.articles.filter(a=>a.source!==id),...articles];data.status[id]=health;
+    const personal=mediaSettings.custom.find(s=>s.id===id);
+    if(personal){const metadata=feedMetadata(response.xml,source.feed);if(metadata.language)personal.language=metadata.language;if(metadata.url)personal.url=metadata.url;writeStorage('extra-extra:media',mediaSettings);sources=mergeSources(catalog,mediaSettings);}
+    await saveSnapshot({id,feed:source.feed,articles,health}).catch(()=>{});
+    return !response.stale;
+  }catch(error){const kept=currentArticles(id),previous=data.status[id];data.articles=[...data.articles.filter(a=>a.source!==id),...kept];data.status[id]={state:kept.length?'stale':'error',count:kept.length,checked,lastSuccess:previous?.lastSuccess,message:error.message};return false;}
+}
+function scheduleAutomatic(){
+  clearTimeout(automaticTimer);if(document.hidden)return;
+  automaticTimer=setTimeout(()=>{if(!document.hidden)loadNews();},Math.max(1000,AUTO_REFRESH-(Date.now()-lastLiveCheck)));
+}
+function queueLive(){clearTimeout(liveTimer);liveTimer=setTimeout(()=>liveRefresh(),500);}
+async function liveRefresh(manual=false,ids=null) {
+  if(liveBusy){pendingLive=true;return;}
+  if(!navigator.onLine){render();if(manual)toast('Sin conexión. Mostrando la última edición guardada.');return;}
+  const targets=(ids||prefs.sources||[]).filter(id=>sources.some(s=>s.id===id));
+  if(!targets.length){lastLiveCheck=Date.now();render();scheduleAutomatic();return;}
+  lastLiveCheck=Date.now();clearTimeout(automaticTimer);liveBusy=true;serviceProblem='';$('#refresh').disabled=true;let completed=0,success=0,index=0;
+  const previousIDs=new Set(data.articles.map(a=>a.id));
+  const progress=()=>{liveProgress=`Actualizando medios ${completed}/${targets.length}…`;$('#update-status').textContent=liveProgress;$('#mobile-menu-status').textContent=liveProgress;};progress();
+  try{
+    const workers=Array.from({length:Math.min(5,targets.length)},async()=>{while(index<targets.length){const id=targets[index++];if(await refreshSource(id))success++;completed++;progress();}});
+    await Promise.all(workers);
+    if(success){
+      // Never mark an all-failed collection as a new edition.
+      const dates=targets.map(id=>data.status[id]).filter(h=>h?.state==='ok').map(h=>Date.parse(h.lastSuccess)).filter(Number.isFinite);
+      if(dates.length)data.generated=new Date(Math.max(Date.parse(data.generated)||0,Math.min(...dates))).toISOString();
+      await saveSnapshot({id:'@edition',generated:data.generated}).catch(()=>{});
+    }else serviceProblem='No se han podido comprobar los RSS. Se conserva la última edición; consulta el estado de los medios.';
+    const newCount=data.articles.filter(a=>!previousIDs.has(a.id)).length;
+    if(manual)toast(success?`${success} medios comprobados. ${newCount?newCount+' noticias nuevas.':'Sin noticias nuevas.'}`:serviceProblem);
+  }finally{liveBusy=false;liveProgress='';$('#refresh').disabled=false;render();if(panelName==='sources'&&$('#panel').open)mediaPanel.draw();scheduleAutomatic();if(pendingLive){pendingLive=false;queueLive();}}
+}
+async function loadNews(manual=false) {
+  if(catalog.length){await liveRefresh(manual);return;}
+  $('#refresh').disabled=true;
+  try {
+    const [catalogResponse,newsResponse]=await Promise.all([fetch(`data/sources.json?t=${Date.now()}`,{cache:'no-store'}),fetch(`data/news.json?t=${Date.now()}`,{cache:'no-store'})]);
+    if(!catalogResponse.ok||!newsResponse.ok)throw new Error();
+    catalog=await catalogResponse.json();data=await newsResponse.json();
+    if(!Array.isArray(catalog)||!Array.isArray(data.articles))throw new Error();
+    sources=mergeSources(catalog,mediaSettings);
+    prefs.sources=prefs.sources===null?sources.map(s=>s.id):prefs.sources.filter(id=>sources.some(s=>s.id===id));
+    const snapshots=await readSnapshots();
+    for(const snapshot of snapshots){
+      if(snapshot.id==='@edition'){if(Date.parse(snapshot.generated)>Date.parse(data.generated))data.generated=snapshot.generated;continue;}
+      const source=sources.find(s=>s.id===snapshot.id&&s.feed===snapshot.feed);
+      if(source&&Array.isArray(snapshot.articles)&&Date.parse(snapshot.health?.lastSuccess)>=(Date.parse(data.status[source.id]?.lastSuccess)||0)){
+        data.articles=[...data.articles.filter(a=>a.source!==source.id),...snapshot.articles.filter(a=>!a.published||Date.now()-Date.parse(a.published)<7*86400000)];data.status[source.id]=snapshot.health;
+      }
+    }
+    render();
+    const stale=!data.generated||Date.now()-Date.parse(data.generated)>=AUTO_REFRESH;
+    if(stale||mediaSettings.custom.length||Object.keys(mediaSettings.overrides).length||manual)await liveRefresh(manual);
+    else lastLiveCheck=Date.parse(data.generated);
+  }catch{
+    $('#news').setAttribute('aria-busy','false');$('#notice').hidden=false;$('#notice').textContent='No se ha podido descargar la portada. Comprueba tu conexión y pulsa Actualizar portada para reintentar.';
+    if(!data.articles.length)$('#news').innerHTML='<div class="empty-state"><h3>Edición no disponible.</h3><p>Vuelve a actualizar en unos instantes.</p></div>';
+  }finally{$('#refresh').disabled=false;if(!lastLiveCheck)lastLiveCheck=Date.now();scheduleAutomatic();}
+}
+const mediaPanel=createMediaPanel({
+  sources:()=>sources,data:()=>data,settings:()=>mediaSettings,selected:()=>prefs.sources||[],
+  persist:()=>writeStorage('extra-extra:media',mediaSettings),replaceSettings:value=>mediaSettings=value,
+  changed:()=>{sources=mergeSources(catalog,mediaSettings);persist();render();},
+  select:ids=>{const newly=ids.filter(id=>!prefs.sources?.includes(id));prefs.sources=[...new Set(ids)];persist();limit=36;render();if(newly.length)queueLive();},
+  removeSource:id=>{prefs.sources=prefs.sources.filter(s=>s!==id);data.articles=data.articles.filter(a=>a.source!==id);delete data.status[id];removeSnapshot(id);},
+  refreshSource:async id=>{const result=await refreshSource(id);render();return result;},api:rssAPI,notify:toast,date:dateLabel,download,refresh:queueLive
+});
+function renderSourcesPanel(){mediaPanel.render();}
 function openPanel(name) {
   closeMenu();
   panelName = name;
@@ -231,32 +305,8 @@ function renderSearchPanel() {
   $('#clear-search').onclick=()=>{clearTimeout(searchTimer);filters.query='';$('#search').value='';render();$('#search-results').textContent=`${allClusters.length} resultados`;$('#search').focus();};
   $('#show-search-results').onclick=()=>{clearTimeout(searchTimer);filters.query=$('#search').value;limit=36;render();$('#panel').close();window.scrollTo({top:0});};
 }
-function renderSourcesPanel() {
-  $('#panel-content').innerHTML = `<p>Selecciona los medios que quieres ver.</p><input id="source-search" class="source-search" type="search" placeholder="Buscar medio o país…" aria-label="Buscar medios"><div class="panel-actions"><button id="select-all">Seleccionar todos</button><button id="select-none">Ninguno</button><button id="select-es">En español</button></div><div id="source-list"></div><details><summary>Añadir medios e importar suscripciones</summary><p>Puedes importar una lista OPML de tu antiguo lector. Se seleccionarán los feeds que coincidan con el catálogo. Para incorporar otro medio a la recogida gratuita, añade su RSS a <a href="https://github.com/AlejandroPico/Xtraxtra/edit/main/data/sources.json" target="_blank" rel="noopener noreferrer">sources.json en el repositorio ↗</a>. La siguiente edición lo recogerá para todos.</p><div class="panel-actions"><button id="import-opml">Importar OPML</button><button id="export-opml">Exportar mis medios</button></div><input type="file" id="opml-file" accept=".opml,.xml,text/xml" hidden><p id="opml-result" role="status" class="small-note"></p></details><p class="small-note">«No disponible» indica que el feed falla o no ofrece noticias recientes. Las selecciones se guardan solo en este navegador.</p>`;
-  drawSourceList();
-  $('#source-search').addEventListener('input', drawSourceList);
-  $('#select-all').onclick = () => setSources(sources.map(s=>s.id));
-  $('#select-none').onclick = () => setSources([]);
-  $('#select-es').onclick = () => setSources(sources.filter(s=>s.language==='es').map(s=>s.id));
-  $('#export-opml').onclick = exportOPML;
-  $('#import-opml').onclick = () => $('#opml-file').click();
-  $('#opml-file').onchange = importOPML;
-}
-function setSources(ids) { prefs.sources = ids; persist(); render(); drawSourceList(); }
-function drawSourceList() {
-  const search = normalize($('#source-search')?.value || '');
-  $('#source-list').innerHTML = sources.filter(source=>normalize(source.name+' '+source.region).includes(search)).map(source => {
-    const health = data.status[source.id];
-    const state = health?.state || 'error';
-    return `<div class="source-row"><label><input type="checkbox" data-source="${esc(source.id)}" ${prefs.sources?.includes(source.id)?'checked':''}><span class="source-info"><span>${esc(source.name)}</span><small>${esc(source.region)} · ${esc(source.language.toUpperCase())} · ${esc(source.category)}</small></span></label><span class="health ${state}" title="${esc(health?.lastSuccess ? `Última recogida correcta: ${dateLabel(health.lastSuccess)}` : 'El RSS no ha respondido correctamente')}">${state==='ok' ? `${health.count} noticias` : state==='stale' ? 'Edición anterior' : 'No disponible'}</span><a href="${esc(safeURL(source.url))}" target="_blank" rel="noopener noreferrer" aria-label="Visitar ${esc(source.name)}">↗</a></div>`;
-  }).join('') || '<p class="small-note">No hay medios con ese nombre.</p>';
-  $('#source-list').querySelectorAll('[data-source]').forEach(input => input.onchange = () => {
-    prefs.sources = input.checked ? [...new Set([...prefs.sources,input.dataset.source])] : prefs.sources.filter(id=>id!==input.dataset.source);
-    persist(); limit=36; render();
-  });
-}
 function renderFiltersPanel() {
-  $('#panel-content').innerHTML = `<div class="settings-field"><label>Presentación</label><div class="choice-row">${[['mosaic','Mosaico'],['cards','Tarjetas'],['list','Lista']].map(([id,label])=>`<button data-view="${id}" aria-pressed="${prefs.view===id}">${icon(id==='mosaic'?'grid':id)}${label}</button>`).join('')}</div></div><div class="settings-field"><label for="sort">Ordenar noticias</label><select id="sort"><option value="relevance">Por relevancia</option><option value="newest">Más recientes</option><option value="coverage">Más cobertura</option></select></div><div class="settings-field"><label for="filter-period">Cuándo se publicaron</label><select id="filter-period"><option value="0">Toda la edición (hasta 7 días)</option><option value="6">Últimas 6 horas</option><option value="24">Últimas 24 horas</option><option value="72">Últimos 3 días</option></select></div><div class="settings-field"><label for="filter-language">Idioma original</label><select id="filter-language"><option value="">Todos los idiomas</option><option value="es">Español</option><option value="en">Inglés</option><option value="fr">Francés</option><option value="de">Alemán</option></select></div><label class="check-row"><input id="group" type="checkbox" ${prefs.group?'checked':''}> Agrupar coberturas similares</label><label class="check-row"><input id="filter-saved" type="checkbox" ${savedOnly?'checked':''}> Solo noticias para leer después</label><label class="check-row"><input id="filter-unread" type="checkbox" ${filters.unread?'checked':''}> Solo noticias sin leer</label><div class="panel-actions"><button id="filter-reset">Restablecer filtros</button><button id="apply-filters">Ver noticias</button></div>`;
+  $('#panel-content').innerHTML = `<div class="settings-field"><label>Presentación</label><div class="choice-row">${[['mosaic','Mosaico'],['cards','Tarjetas'],['list','Lista']].map(([id,label])=>`<button data-view="${id}" aria-pressed="${prefs.view===id}">${icon(id==='mosaic'?'grid':id)}${label}</button>`).join('')}</div></div><div class="settings-field"><label for="sort">Ordenar noticias</label><select id="sort"><option value="relevance">Por relevancia</option><option value="newest">Más recientes</option><option value="coverage">Más cobertura</option></select></div><div class="settings-field"><label for="filter-period">Cuándo se publicaron</label><select id="filter-period"><option value="0">Toda la edición (hasta 7 días)</option><option value="6">Últimas 6 horas</option><option value="24">Últimas 24 horas</option><option value="72">Últimos 3 días</option></select></div><div class="settings-field"><label for="filter-language">Idioma original</label><select id="filter-language"><option value="">Todos los idiomas</option><option value="es">Español</option><option value="ca">Catalán</option><option value="gl">Gallego</option><option value="eu">Euskera</option><option value="pt">Portugués</option><option value="it">Italiano</option><option value="en">Inglés</option><option value="fr">Francés</option><option value="de">Alemán</option></select></div><label class="check-row"><input id="group" type="checkbox" ${prefs.group?'checked':''}> Agrupar coberturas similares</label><label class="check-row"><input id="filter-saved" type="checkbox" ${savedOnly?'checked':''}> Solo noticias para leer después</label><label class="check-row"><input id="filter-unread" type="checkbox" ${filters.unread?'checked':''}> Solo noticias sin leer</label><div class="panel-actions"><button id="filter-reset">Restablecer filtros</button><button id="apply-filters">Ver noticias</button></div>`;
   $('#sort').value=sortOrder;
   $('#group').onchange=event=>{prefs.group=event.target.checked;persist();limit=36;render();};
   $('#sort').onchange=event=>{sortOrder=event.target.value;limit=36;render();};
@@ -269,6 +319,14 @@ function renderFiltersPanel() {
   $('#filter-reset').onclick = () => { resetFilters(); renderFiltersPanel(); };
   $('#apply-filters').onclick=()=>{$('#panel').close();window.scrollTo({top:0});};
   renderPersonalTools();
+  renderTerritoryTools();
+}
+function renderTerritoryTools() {
+  const options=first=>`<option value="">${first}</option>`+territories.map(t=>`<option value="${t.id}">${t.parent?'↳ ':''}${esc(t.name)}</option>`).join('');
+  $('#filter-language').closest('.settings-field').insertAdjacentHTML('afterend',`<label class="settings-field"><span>Territorio de la noticia</span><select id="filter-territory">${options('Todos los territorios')}</select></label><label class="settings-field"><span>Dar prioridad a noticias cercanas</span><select id="nearby-territory">${options('Sin zona preferida')}</select></label><p class="small-note">La zona se elige manualmente. El territorio se detecta por menciones en el titular y el extracto, sin usar el país del periódico. Puede haber errores. La cercanía influye en el orden por relevancia.</p>`);
+  $('#filter-territory').value=filters.territory;$('#nearby-territory').value=prefs.nearby;
+  $('#filter-territory').onchange=e=>{filters.territory=e.target.value;limit=36;render();};
+  $('#nearby-territory').onchange=e=>{prefs.nearby=e.target.value;persist();limit=36;render();};
 }
 function renderPersonalTools() {
   $('#panel-content').querySelector('.settings-field').insertAdjacentHTML('afterend',`<label class="settings-field"><span>Densidad de las fichas</span><select id="density">${[['compact','Compacta'],['normal','Normal'],['comfortable','Amplia']].map(([value,label])=>`<option value="${value}" ${prefs.density===value?'selected':''}>${label}</option>`).join('')}</select></label>`);
@@ -286,7 +344,7 @@ function renderPersonalTools() {
     const name=$('#frontpage-name').value.trim();if(!name){toast('Escribe un nombre para la portada.');return;}
     const existing=frontpages.find(p=>normalize(p.name)===normalize(name));
     if(!existing&&frontpages.length>=30){toast('Puedes guardar hasta 30 portadas.');return;}
-    const entry={id:existing?.id||`page-${Date.now()}`,name,sources:[...(prefs.sources||[])],filters:{query:filters.query,category:filters.category,language:filters.language,hours:filters.hours,unread:filters.unread},group:prefs.group,order:sortOrder,sourceLimit:prefs.sourceLimit,topicLimit:prefs.topicLimit};
+    const entry={id:existing?.id||`page-${Date.now()}`,name,sources:[...(prefs.sources||[])],filters:{query:filters.query,category:filters.category,language:filters.language,territory:filters.territory,hours:filters.hours,unread:filters.unread},group:prefs.group,order:sortOrder,sourceLimit:prefs.sourceLimit,topicLimit:prefs.topicLimit};
     frontpages=frontpages.filter(p=>p.id!==entry.id);frontpages.push(entry);activeFrontpage=entry.id;writeStorage('extra-extra:frontpages',frontpages);renderFiltersPanel();toast('Portada guardada.');
   };
   $('#remove-frontpage').onclick=()=>{frontpages=frontpages.filter(p=>p.id!==activeFrontpage);activeFrontpage='';writeStorage('extra-extra:frontpages',frontpages);renderFiltersPanel();toast('Portada eliminada.');};
@@ -304,7 +362,7 @@ function renderAppearancePanel() {
   $('#font').onchange = event => { prefs.font=event.target.value;persist();applyAppearance(); };
   $('#font-size').oninput = event => { prefs.size=Number(event.target.value);$('#size-output').textContent=`${prefs.size} px`;persist();applyAppearance(); };
   $('#show-images').onchange = event => { prefs.images=event.target.checked;persist();applyAppearance();render(); };
-  $('#export-settings').onclick = () => download('extra-extra-copia.json',JSON.stringify({version:1,preferences:prefs,saved,read,frontpages,mutes},null,2),'application/json');
+  $('#export-settings').onclick = () => download('extra-extra-copia.json',JSON.stringify({version:1,preferences:prefs,saved,read,frontpages,mutes,media:mediaSettings},null,2),'application/json');
   $('#import-settings').onclick = () => $('#settings-file').click();
   $('#settings-file').onchange = importSettings;
   const ranges=[['line-height','Interlineado','lineHeight',1.3,2.4,.1,''],['reader-width','Ancho del texto','readerWidth',440,960,20,' px'],['reader-margin','Márgenes del lector','readerMargin',12,64,2,' px'],['paragraph-gap','Separación entre párrafos','paragraphGap',.4,2,.1,' em']];
@@ -313,27 +371,11 @@ function renderAppearancePanel() {
   for(const [id,key] of [['high-contrast','highContrast'],['large-controls','largeControls'],['reduce-motion','reduceMotion']])$('#'+id).onchange=event=>{prefs[key]=event.target.checked;persist();applyAppearance();layoutNews();};
 }
 function renderAboutPanel() {
-  $('#panel-content').innerHTML = `<div class="about-hero"><img src="favicon.png" alt="Un joven con boina alza un periódico"><p>Extra Extra</p></div><div class="about-copy"><p>Antes alguien recorría las calles con un periódico en alto y un «¡Extra, extra!». Hoy las noticias llegan desde todas partes. Este proyecto quiere devolverles un lugar sencillo y tranquilo.</p><p>Un pequeño homenaje a los lectores RSS y a Google Currents: eliges tus medios, reúnes sus noticias y lees a tu ritmo. Sin una cuenta, sin una portada impuesta.</p><p>Extra Extra es gratuito y de código abierto. Las noticias y fotografías pertenecen a sus respectivos autores. Mostramos lo que el medio distribuye en su RSS: a veces un extracto, a veces más texto. Siempre encontrarás el enlace a la publicación original. El proyecto no elimina muros de pago ni garantiza acceso gratuito a todos los artículos.</p><p>Las ediciones se recogen aproximadamente cada 20 minutos mediante GitHub Actions. Los horarios pueden retrasarse. La fecha de edición y el estado de cada fuente están a la vista.</p></div><div class="install-control"><button id="install-app" class="outline-button">Instalar en el móvil</button></div><div class="about-links"><a href="https://github.com/AlejandroPico/Xtraxtra" target="_blank" rel="noopener noreferrer">Código de Extra Extra <span>↗</span></a><a href="https://alejandropico.github.io/Portfolio/" target="_blank" rel="noopener noreferrer">Portfolio de Alejandro Pico <span>↗</span></a></div>`;
+  $('#panel-content').innerHTML = `<div class="about-hero"><img src="favicon.png" alt="Un joven con boina alza un periódico"><p>Extra Extra</p></div><div class="about-copy"><p>Antes alguien recorría las calles con un periódico en alto y un «¡Extra, extra!». Hoy las noticias llegan desde todas partes. Este proyecto quiere devolverles un lugar sencillo y tranquilo.</p><p>Un pequeño homenaje a los lectores RSS y a Google Currents: eliges tus medios, reúnes sus noticias y lees a tu ritmo. Sin una cuenta, sin una portada impuesta.</p><p>Extra Extra es gratuito y de código abierto. Las noticias y fotografías pertenecen a sus respectivos autores. Mostramos lo que el medio distribuye en su RSS: a veces un extracto, a veces más texto. Siempre encontrarás el enlace a la publicación original. El proyecto no elimina muros de pago ni garantiza acceso gratuito a todos los artículos.</p><p>La recogida en GitHub está programada cada 10 minutos, aunque sus ejecuciones pueden retrasarse. Al abrir la web y mientras la lees, un servicio de apoyo comprueba los RSS cada 10 minutos. Si una fuente falla, se conserva su última edición y se indica en Medios. Solo se consulta el contenido público distribuido en RSS.</p></div><div class="install-control"><button id="install-app" class="outline-button">Instalar en el móvil</button></div><div class="about-links"><a href="https://github.com/AlejandroPico/Xtraxtra" target="_blank" rel="noopener noreferrer">Código de Extra Extra <span>↗</span></a><a href="https://alejandropico.github.io/Portfolio/" target="_blank" rel="noopener noreferrer">Portfolio de Alejandro Pico <span>↗</span></a></div>`;
 }
 function download(name, contents, mime) {
   const url=URL.createObjectURL(new Blob([contents],{type:mime}));
   const a=document.createElement('a'); a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
-}
-function exportOPML() {
-  const xmlEsc = value => esc(value);
-  const outlines=sources.filter(s=>prefs.sources.includes(s.id)).map(s=>`    <outline type="rss" text="${xmlEsc(s.name)}" title="${xmlEsc(s.name)}" xmlUrl="${xmlEsc(s.feed)}" htmlUrl="${xmlEsc(s.url)}"/>`).join('\n');
-  download('extra-extra-medios.opml',`<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0"><head><title>Mi quiosco · Extra Extra</title></head><body>\n${outlines}\n</body></opml>`,'text/xml');
-}
-async function importOPML(event) {
-  const file=event.target.files[0]; if (!file) return;
-  if(file.size>1000000){toast('La lista OPML es demasiado grande (máximo 1 MB).');return;}
-  const xml=new DOMParser().parseFromString(await file.text(),'text/xml');
-  if(xml.querySelector('parsererror') || !xml.querySelector('opml')) { toast('Este archivo no es una lista OPML válida.');return; }
-  const feeds=[...xml.querySelectorAll('outline[xmlUrl]')].map(o=>({url:o.getAttribute('xmlUrl'),name:o.getAttribute('text')||o.getAttribute('title')||o.getAttribute('xmlUrl')}));
-  const match=feeds.map(f=>sources.find(s=>s.feed.replace(/\/$/,'')===f.url.replace(/\/$/,''))).filter(Boolean);
-  prefs.sources=[...new Set([...prefs.sources,...match.map(s=>s.id)])];persist();render();drawSourceList();
-  const missing=feeds.filter(f=>!sources.some(s=>s.feed.replace(/\/$/,'')===f.url.replace(/\/$/,'')));
-  $('#opml-result').textContent=`${match.length} medios reconocidos y seleccionados. ${missing.length ? `Pendientes de añadir al catálogo: ${missing.map(f=>f.name).join(', ')}.` : 'Todos están en el catálogo.'}`;
 }
 async function importSettings(event) {
   const file=event.target.files[0];if(!file)return;
@@ -342,6 +384,8 @@ async function importSettings(event) {
     const backup=JSON.parse(await file.text());
     if(backup.version!==1 || !backup.preferences || !Array.isArray(backup.saved))throw new Error();
     const p=backup.preferences;
+    if(backup.media){const imported=sourceSettings(backup.media);mediaSettings=sourceSettings({custom:[...mediaSettings.custom,...imported.custom],folders:[...mediaSettings.folders,...imported.folders],assignments:{...mediaSettings.assignments,...imported.assignments},priorities:{...mediaSettings.priorities,...imported.priorities},overrides:{...mediaSettings.overrides,...imported.overrides}});sources=mergeSources(catalog,mediaSettings);writeStorage('extra-extra:media',mediaSettings);}
+    if(territories.some(t=>t.id===p.nearby)||p.nearby==='')prefs.nearby=p.nearby;
     Object.assign(prefs,readingPreferences({...prefs,...p}));
     if(Array.isArray(backup.frontpages))frontpages=sanitizeFrontpages([...frontpages,...backup.frontpages]);
     if(Array.isArray(backup.mutes))mutes=[...new Map(activeMutes([...mutes,...backup.mutes]).map(m=>[normalize(m.text),m])).values()].slice(-40);
@@ -352,7 +396,7 @@ async function importSettings(event) {
     if(Number.isFinite(p.size))prefs.size=Math.max(15,Math.min(28,p.size));
     if(Array.isArray(p.sources))prefs.sources=p.sources.filter(id=>sources.some(s=>s.id===id));
     for(const key of ['images','group'])if(typeof p[key]==='boolean')prefs[key]=p[key];
-    const valid=backup.saved.filter(a=>a && typeof a.id==='string' && typeof a.title==='string' && typeof a.source==='string' && typeof a.summary==='string' && safeURL(a.url)).map(a=>({...a,content:typeof a.content==='string'?a.content:'',language:['es','en','fr','de'].includes(a.language)?a.language:'es',published:Number.isFinite(Date.parse(a.published))?a.published:null,image:safeURL(a.image),categories:Array.isArray(a.categories)?a.categories:[]}));
+    const valid=backup.saved.filter(a=>a && typeof a.id==='string' && typeof a.title==='string' && typeof a.source==='string' && typeof a.summary==='string' && safeURL(a.url)).map(a=>({...a,content:typeof a.content==='string'?a.content:'',language:languages[a.language]?a.language:'es',published:Number.isFinite(Date.parse(a.published))?a.published:null,image:safeURL(a.image),categories:Array.isArray(a.categories)?a.categories:[]}));
     saved=[...new Map([...saved,...valid].map(a=>[a.id,a])).values()];
     if(Array.isArray(backup.read))read=[...new Set([...read,...backup.read.filter(id=>typeof id==='string')])].slice(-5000);
     persist();writeStorage('extra-extra:saved',saved);writeStorage('extra-extra:read',read);applyAppearance();render();renderAppearancePanel();toast('Copia importada. Tu quiosco ya está preparado.');
@@ -408,7 +452,7 @@ document.addEventListener('click',event=>{
   const save=event.target.closest('[data-save]');if(save){const a=data.articles.find(a=>a.id===save.dataset.save)||saved.find(a=>a.id===save.dataset.save);if(a)saveArticle(a);return;}
   if(event.target.closest('#clear-filters,#reset-empty')){resetFilters();if(!prefs.sources.length){prefs.sources=sources.map(s=>s.id);persist();render();}}
 });
-document.addEventListener('change',event=>{if(event.target.matches('#sort,#group,#filter-saved,#filter-period,#filter-language,#filter-unread,#source-limit,#topic-limit,[data-source]')){activeFrontpage='';if($('#frontpage-select'))$('#frontpage-select').value='';}});
+document.addEventListener('change',event=>{if(event.target.matches('#sort,#group,#filter-saved,#filter-period,#filter-language,#filter-unread,#filter-territory,#nearby-territory,#source-limit,#topic-limit,[data-source]')){activeFrontpage='';if($('#frontpage-select'))$('#frontpage-select').value='';}});
 document.addEventListener('input',event=>{if(event.target.id==='search')activeFrontpage='';});
 $('#close-panel').onclick=()=>$('#panel').close();
 $('#close-reader').onclick=()=>$('#reader').close();
@@ -420,7 +464,7 @@ $('#saved-toggle').onclick=()=>{closeMenu();savedOnly=!savedOnly;resetFilters();
 
 $('#refresh').onclick=()=>loadNews(true);
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)&&!$('dialog[open]')){event.preventDefault();openPanel('search');}});
-document.addEventListener('visibilitychange',()=>{if(!document.hidden){applyAppearance();if(!data.generated||Date.now()-Date.parse(data.generated)>20*60000)loadNews();}});
-setInterval(()=>{if(!document.hidden&&!$('dialog[open]'))loadNews();},5*60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden){applyAppearance();if(!liveBusy&&Date.now()-lastLiveCheck>=AUTO_REFRESH)loadNews();else if(!liveBusy)scheduleAutomatic();}});
+
 setInterval(()=>{applyAppearance();const today=calendarKey(new Date()),active=activeMutes(mutes);if(active.length!==mutes.length||today!==lastCalendarDay){mutes=active;lastCalendarDay=today;writeStorage('extra-extra:mutes',mutes);render();}},60000);
 loadNews();

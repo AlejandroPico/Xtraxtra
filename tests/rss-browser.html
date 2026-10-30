@@ -1,0 +1,20 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Pruebas de RSS</title><h1>Pruebas del lector RSS</h1><button id="run">Ejecutar pruebas</button><pre id="result" role="status"></pre><script type="module">
+import {parseFeed,parseOPML,readSnapshots,saveSnapshot,removeSnapshot} from '../lib/feeds.js';
+const source={id:'test-source',url:'https://example.org/',feed:'https://example.org/feed',language:'es'};
+const assert=(condition,message)=>{if(!condition)throw new Error(message);};
+document.querySelector('#run').onclick=async()=>{
+ const lines=[],out=document.querySelector('#result');
+ try{
+  const now=Date.now(),date=new Date(now-60000).toUTCString();
+  const rss=`<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><language>gl</language><item><title>Nova &amp; actual</title><link>https://example.org/one</link><pubDate>${date}</pubDate><description><![CDATA[<p>Texto seguro</p><script>alert(1)<\/script><img src="javascript:alert(1)">]]></description><content:encoded><![CDATA[<!DOCTYPE html><p>Primeiro</p><p>Segundo</p>]]></content:encoded></item><item><title>Antiga</title><link>https://example.org/old</link><pubDate>Sat, 01 Jan 2000 10:00:00 GMT</pubDate></item></channel></rss>`;
+  const items=await parseFeed(rss,source,now);assert(items.length===1,'Filtrar noticias antiguas');assert(items[0].title==='Nova & actual','Entidades XML');assert(items[0].language==='gl','Idioma declarado');assert(!items[0].summary.includes('alert'),'Eliminar scripts');assert(items[0].image==='','Imágenes ejecutables');assert(items[0].content.includes('Primeiro\nSegundo'),'Párrafos y DOCTYPE inerte dentro de CDATA');lines.push('RSS: fecha, idioma, texto y seguridad correctos.');
+  const atom=`<feed xmlns="http://www.w3.org/2005/Atom" xml:lang="eu"><entry><title>Albistea</title><link rel="alternate" href="/two"/><updated>${new Date(now).toISOString()}</updated><content type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml"><p>Lehena</p><p>Bigarrena</p></div></content></entry></feed>`;
+  const entries=await parseFeed(atom,source,now);assert(entries[0].url==='https://example.org/two','Enlace Atom relativo');assert(entries[0].language==='eu','Idioma Atom');assert(entries[0].content.includes('Bigarrena'),'XHTML Atom');lines.push('Atom: enlaces, idioma y contenido XHTML correctos.');
+  let rejected=false;try{await parseFeed('<!DOCTYPE rss [<!ENTITY ext SYSTEM "file:///secret">]><rss/>',source,now);}catch{rejected=true;}assert(rejected,'Rechazar entidades externas');
+  const opml=parseOPML('<opml version="2.0"><body><outline text="Ciencia"><outline text="Universidades"><outline text="Nuevo medio" xmlUrl="https://example.org/feed"/></outline></outline><outline text="Duplicado" xmlUrl="https://example.org/feed"/><outline text="Peligroso" xmlUrl="javascript:alert(1)"/></body></opml>');
+  assert(opml.length===1,'Deduplicación OPML');assert(opml[0].folder==='Ciencia / Universidades','Carpetas anidadas');assert(opml[0].name==='Nuevo medio','Nombre original OPML');lines.push('OPML: medios nuevos, carpetas anidadas y deduplicación correctos.');
+  const id='@test-rss-snapshot';await saveSnapshot({id,articles:items});assert((await readSnapshots()).some(s=>s.id===id&&s.articles[0].title===items[0].title),'Persistencia local RSS');await removeSnapshot(id);lines.push('Caché local de los RSS: escritura y lectura correctas.');
+  out.textContent=lines.join('\n')+'\n4 pruebas completadas correctamente.';
+ }catch(error){out.textContent=lines.join('\n')+'\nERROR: '+error.message;}
+};
+</script></html>

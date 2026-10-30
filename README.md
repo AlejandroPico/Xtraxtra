@@ -34,13 +34,13 @@ npm test
 
 ## Publicación gratuita en GitHub Pages
 
-En **Settings → Pages → Build and deployment → Source**, selecciona **GitHub Actions**. El flujo `.github/workflows/edition.yml` recoge los RSS y publica únicamente los archivos públicos. Se ejecuta al subir cambios a `main`, manualmente desde Actions y aproximadamente cada 20 minutos (minutos 7, 27 y 47).
+En **Settings → Pages → Build and deployment → Source**, selecciona **GitHub Actions**. El flujo `.github/workflows/edition.yml` recoge los RSS y publica únicamente los archivos públicos. Se ejecuta al subir cambios a `main`, manualmente desde Actions y cada 10 minutos (minutos 3, 13, 23, 33, 43 y 53).
 
-El flujo intenta configurar Pages automáticamente. Si GitHub no permite hacerlo con el token del repositorio, activa GitHub Actions como origen en Settings → Pages y vuelve a ejecutar el flujo. No hay servidores de pago ni proxies de artículos.
+El flujo intenta configurar Pages automáticamente. Si GitHub no permite hacerlo con el token del repositorio, activa GitHub Actions como origen en Settings → Pages y vuelve a ejecutar el flujo. La web permanece en GitHub Pages; un servicio de apoyo consulta RSS públicos. No se utilizan APIs de IA de pago ni proxies de artículos.
 
 El recolector usa seis conexiones como máximo, 18 segundos de espera por fuente y un límite de 4 MB por feed. La caché de Actions conserva la edición entre recogidas sin llenar el historial Git con noticias. El JSON incluido es una edición real inicial; la web se actualiza durante el despliegue y no tiene por qué coincidir con el JSON del repositorio.
 
-GitHub Actions **no garantiza tiempo real**: las ejecuciones programadas pueden retrasarse y, en repositorios públicos sin actividad durante 60 días, GitHub puede desactivar la programación. Un fallo de red o despliegue conserva la web publicada. El navegador consulta la edición cada cinco minutos mientras está visible. «Actualizar portada» consulta la edición publicada; no fuerza una recogida de los medios.
+GitHub Actions **no garantiza tiempo real**: las ejecuciones programadas pueden retrasarse y, en repositorios públicos sin actividad durante 60 días, GitHub puede desactivar la programación. Un fallo de red o despliegue conserva la web publicada. Al abrir una edición de más de diez minutos, la aplicación consulta directamente los RSS mediante el servicio de apoyo. Repite la comprobación cada diez minutos mientras está visible y al regresar si corresponde. «Actualizar portada» consulta esos RSS; cada canal reutiliza una caché pública de hasta diez minutos. El servicio renueva la caché bajo demanda. No promete que GitHub ejecute puntualmente ni que un editor publique contenido nuevo cada diez minutos.
 
 Documentación: [programación de Actions](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), [Pages con Actions](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
@@ -48,11 +48,11 @@ Documentación: [programación de Actions](https://docs.github.com/en/actions/re
 
 Edita `data/sources.json`. Cada entrada tiene `id` único, `name`, `url`, `feed`, `language`, `region` y `category`. Usa un RSS/Atom público del editor y comprueba sus condiciones antes de incluirlo en una publicación pública. La disponibilidad de un RSS no equivale por sí sola a una licencia de redistribución. La atribución y los enlaces permanecen visibles.
 
-Algunos medios cambian sus RSS, los bloquean o dejan de mantenerlos. La interfaz muestra «No disponible», sin inventar noticias. OPML reconoce medios del catálogo e informa de los pendientes. No añade URLs arbitrarias al servidor: las nuevas fuentes deben incorporarse al catálogo del repositorio.
+También se pueden añadir medios personales desde Medios, pegando su web o RSS, e importar canales externos mediante OPML. Las carpetas se conservan al importar y exportar. Las fuentes personales, carpetas y prioridades solo se guardan en este navegador y forman parte de la copia JSON. Cuando falla un RSS se indica su error; Opciones y estado permite comprobarlo y buscar un sustituto anunciado por el medio. No todas las webs ofrecen RSS accesibles.
 
 ## Privacidad y límites
 
-Preferencias y guardadas viven en `localStorage`, en este navegador. No hay sincronización entre dispositivos: exporta una copia para trasladarlas. Sin analítica propia. Las imágenes se solicitan al medio sin cabecera Referer y pueden ocultarse. Google Fonts sirve DM Sans y Libre Caslon Display; si falla, se usan fuentes del sistema. Los feeds se convierten a texto plano; la interfaz escapa los textos y admite únicamente enlaces HTTP/HTTPS.
+Preferencias, fuentes personales y guardadas viven en `localStorage`; las noticias recogidas por el servicio se almacenan en IndexedDB, en este navegador. No hay sincronización entre dispositivos: exporta una copia para trasladarlas. Sin analítica propia. Las imágenes se solicitan al medio sin cabecera Referer y pueden ocultarse. Google Fonts sirve DM Sans y Libre Caslon Display; si falla, se usan fuentes del sistema. Los feeds se convierten a texto plano; la interfaz escapa los textos y admite únicamente enlaces HTTP/HTTPS.
 
 Las categorías y temas usan reglas locales, sin IA de pago. Pueden clasificar mal una noticia. La agrupación no detecta todas las coberturas y puede producir asociaciones erróneas. No hay acceso universal a artículos completos o de suscripción.
 
@@ -76,7 +76,7 @@ Las pruebas cubren reconocimiento de gestos (sin confundir desplazamientos horiz
 
 ## Tanda 1 (1.2)
 
-El plan de las 45 mejoras seleccionadas está en [docs/TANDAS.md](docs/TANDAS.md). Solo la primera tanda está implementada; las otras tres quedan pendientes.
+El plan de las 45 mejoras seleccionadas está en [docs/TANDAS.md](docs/TANDAS.md). Las tandas 1 y 2 están implementadas; las tandas 3 y 4 quedan pendientes.
 
 La portada utiliza una sola franja con dos áreas horizontales táctiles: secciones generales y radar. El total de noticias aparece junto a la hora de actualización. La carga añade noticias automáticamente al acercarse al final, sin botón ni pie de paginación. Las noticias se agrupan por día de calendario local, con una separación completa al pasar a ayer y fechas anteriores. El orden por relevancia o cobertura se aplica dentro de cada día. Se recorre la edición disponible, no un archivo histórico ilimitado.
 
@@ -85,3 +85,11 @@ En Filtros se pueden guardar portadas personales, silenciar términos temporalme
 Lectura añade controles de interlineado, ancho, márgenes y separación entre párrafos, además de alto contraste, controles mayores y reducción de animaciones. El lector indica la duración aproximada del texto y avisa si se trata de un extracto; el botón de reloj permite devolver la noticia a pendientes. Portadas, silencios y ajustes se conservan en el navegador y se incluyen en la exportación/importación JSON.
 
 La instalación está dentro de Acerca de y se ofrece en móvil. La caché incluye los nuevos módulos para mantener la apertura sin conexión.
+
+## Tanda 2 (1.3)
+
+Medios incorpora descubrimiento de RSS/Atom, importación OPML de fuentes fuera del catálogo, carpetas, prioridades, filtros de catálogo y diagnóstico/reparación de direcciones. El catálogo contiene 47 fuentes verificadas; algunas pueden no tener noticias en los últimos siete días o fallar temporalmente. Los filtros de idioma incluyen catalán, gallego y euskera. Las fuentes primarias están identificadas.
+
+Filtros incorpora territorio del artículo y una zona manual para dar prioridad a información cercana. El detector solo usa menciones del contenido, no el origen del periódico. Los nombres de países y territorios proceden de Unicode CLDR; véase [atribución](docs/TERRITORIOS.md). No utiliza geolocalización.
+
+El servicio está en https://xtraxtra-rss-apico.alejandropico.chatgpt.site y su lógica reproducible en [services/rss](services/rss/README.md). No se han configurado claves privadas en el cliente. Se consultan exclusivamente RSS/Atom públicos, con caché de diez minutos, límites de tamaño y tiempo, validación de dominios y redirecciones y CORS limitado al portal y su desarrollo local. No existe garantía de disponibilidad ilimitada de servicios gratuitos.

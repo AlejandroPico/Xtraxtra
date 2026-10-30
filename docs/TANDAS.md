@@ -1,6 +1,6 @@
 # Mejoras seleccionadas: cuatro tandas
 
-Selección del usuario del 29 de octubre de 2026. Se conservan los números de `IDEAS.md`. El 39 se pidió dos veces y cuenta una sola: son **45 mejoras**. Se aplica ahora únicamente la primera tanda y los ajustes inmediatos de la portada. Las siguientes se realizarán cuando el usuario las pida.
+Selección del usuario del 29 de octubre de 2026. Se conservan los números de `IDEAS.md`. El 39 se pidió dos veces y cuenta una sola: son **45 mejoras**. Las tandas 1 y 2 están implementadas. Las tandas 3 y 4 se realizarán cuando el usuario las pida.
 
 ## Ajustes inmediatos de la portada — implementados
 
@@ -27,7 +27,7 @@ Selección del usuario del 29 de octubre de 2026. Se conservan los números de `
 
 Preferencias, portadas y silencios se guardan en este navegador y forman parte de la copia JSON exportable. Las portadas no incluyen ajustes de lectura ni sustituyen los silencios globales. La diversidad no descarta noticias si faltan alternativas. La carga progresiva recorre las noticias de la edición disponible; no constituye un archivo histórico ilimitado.
 
-## Tanda 2 — medios y territorio — pendiente
+## Tanda 2 — medios y territorio — implementada
 
 - **1.** Añadir medios desde la aplicación.
 - **2.** Descubrir canales RSS a partir de una web.
@@ -42,7 +42,13 @@ Preferencias, portadas y silencios se guardan en este navegador y forman parte d
 - **17.** Noticias cercanas a una zona elegida manualmente.
 - **18.** Filtro por territorio del que trata la noticia.
 
-Antes de admitir fuentes arbitrarias, resolver la recogida de feeds que no permiten acceso directo desde el navegador, manteniendo el objetivo de servicio gratuito. No utilizar proxies públicos sin control ni añadir claves privadas al cliente. El filtro territorial debe tratar sobre el contenido, no deducir automáticamente el lugar de la noticia a partir del país del periódico.
+Las funciones 1–10 están en Medios: añadir web/RSS, descubrir canales, importar/exportar OPML con carpetas, marcar prioridades con la estrella, consultar filtros del catálogo y abrir opciones de cada fuente para comprobar o sustituir su RSS. El catálogo pasa de 26 a 47 fuentes e incluye prensa regional, catalán, gallego, euskera, agencias y organismos, además de la Universidad de Cambridge.
+
+Las funciones 17–18 están en Filtros: elegir una zona preferida o filtrar el territorio de la noticia. Se reconocen menciones en titular, extracto y etiquetas, sin usar el país del medio; es una aproximación que puede equivocarse. La zona y las fuentes preferidas influyen en relevancia dentro de cada día, sin ocultar otras noticias ni sustituir el orden cronológico elegido.
+
+El servicio público de apoyo es https://xtraxtra-rss-apico.alejandropico.chatgpt.site. Sirve RSS/Atom y descubre canales de webs públicas, sin extraer artículos ni atravesar suscripciones. No recibe guardadas, búsquedas, zona preferida o carpetas. Las direcciones de canales solicitadas sí llegan al servicio y a sus editores. La caché de canales dura diez minutos y se renueva bajo demanda; no es un recolector permanente cuando nadie abre la web.
+
+GitHub programa su edición a los minutos 3, 13, 23, 33, 43 y 53 de cada hora. Sus retrasos se cubren mediante consultas desde la página abierta y al volver a ella. Los RSS personales se guardan en este navegador (hasta 120, con 30 carpetas); sus noticias se almacenan en IndexedDB. Los ajustes y fuentes forman parte de la copia JSON. Las fuentes con errores conservan su edición anterior y no se falsifica una nueva fecha cuando todas fallan.
 
 ## Tanda 3 — coberturas e historias — pendiente
 

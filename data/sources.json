@@ -1,28 +1,434 @@
 [
-  {"id":"rtve","name":"RTVE","url":"https://www.rtve.es/noticias/","feed":"https://www.rtve.es/rss/temas_noticias.xml","language":"es","region":"España","category":"Actualidad"},
-  {"id":"elpais","name":"El País","url":"https://elpais.com/","feed":"https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada","language":"es","region":"España","category":"Actualidad"},
-  {"id":"elmundo","name":"El Mundo","url":"https://www.elmundo.es/","feed":"https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml","language":"es","region":"España","category":"Actualidad"},
-  {"id":"abc","name":"ABC","url":"https://www.abc.es/","feed":"https://www.abc.es/rss/feeds/abcPortada.xml","language":"es","region":"España","category":"Actualidad"},
-  {"id":"larazon","name":"La Razón","url":"https://www.larazon.es/","feed":"https://www.larazon.es/rss/portada.xml","language":"es","region":"España","category":"Actualidad"},
-  {"id":"eldiario","name":"elDiario.es","url":"https://www.eldiario.es/","feed":"https://www.eldiario.es/rss/","language":"es","region":"España","category":"Actualidad"},
-  {"id":"publico","name":"Público","url":"https://www.publico.es/","feed":"https://www.publico.es/rss/","language":"es","region":"España","category":"Actualidad"},
-  {"id":"20minutos","name":"20minutos","url":"https://www.20minutos.es/","feed":"https://www.20minutos.es/rss/","language":"es","region":"España","category":"Actualidad"},
-  {"id":"lavanguardia","name":"La Vanguardia","url":"https://www.lavanguardia.com/","feed":"https://www.lavanguardia.com/rss/home.xml","language":"es","region":"España","category":"Actualidad"},
-  {"id":"elconfidencial","name":"El Confidencial","url":"https://www.elconfidencial.com/","feed":"https://rss.elconfidencial.com/espana/","language":"es","region":"España","category":"Política"},
-  {"id":"europapress","name":"Europa Press","url":"https://www.europapress.es/","feed":"https://www.europapress.es/rss/rss.aspx","language":"es","region":"España","category":"Actualidad"},
-  {"id":"expansion","name":"Expansión","url":"https://www.expansion.com/","feed":"https://e00-expansion.uecdn.es/rss/portada.xml","language":"es","region":"España","category":"Economía"},
-  {"id":"xataka","name":"Xataka","url":"https://www.xataka.com/","feed":"https://www.xataka.com/index.xml","language":"es","region":"España","category":"Tecnología"},
-  {"id":"genbeta","name":"Genbeta","url":"https://www.genbeta.com/","feed":"https://www.genbeta.com/index.xml","language":"es","region":"España","category":"Tecnología"},
-  {"id":"microsiervos","name":"Microsiervos","url":"https://www.microsiervos.com/","feed":"https://www.microsiervos.com/index.xml","language":"es","region":"España","category":"Ciencia"},
-  {"id":"sinc","name":"Agencia SINC","url":"https://www.agenciasinc.es/","feed":"https://www.agenciasinc.es/feed/Noticias","language":"es","region":"España","category":"Ciencia"},
-  {"id":"bbc-es","name":"BBC Mundo","url":"https://www.bbc.com/mundo","feed":"https://feeds.bbci.co.uk/mundo/rss.xml","language":"es","region":"Internacional","category":"Internacional"},
-  {"id":"dw-es","name":"DW Español","url":"https://www.dw.com/es/","feed":"https://rss.dw.com/rdf/rss-sp-all","language":"es","region":"Internacional","category":"Internacional"},
-  {"id":"france24","name":"France 24","url":"https://www.france24.com/es/","feed":"https://www.france24.com/es/rss","language":"es","region":"Internacional","category":"Internacional"},
-  {"id":"bbc","name":"BBC News","url":"https://www.bbc.com/news","feed":"https://feeds.bbci.co.uk/news/world/rss.xml","language":"en","region":"Reino Unido","category":"Internacional"},
-  {"id":"guardian","name":"The Guardian","url":"https://www.theguardian.com/","feed":"https://www.theguardian.com/world/rss","language":"en","region":"Reino Unido","category":"Internacional"},
-  {"id":"nasa","name":"NASA","url":"https://www.nasa.gov/","feed":"https://www.nasa.gov/feed/","language":"en","region":"Estados Unidos","category":"Ciencia"},
-  {"id":"lemonde","name":"Le Monde","url":"https://www.lemonde.fr/","feed":"https://www.lemonde.fr/rss/une.xml","language":"fr","region":"Francia","category":"Internacional"},
-  {"id":"tagesschau","name":"Tagesschau","url":"https://www.tagesschau.de/","feed":"https://www.tagesschau.de/xml/rss2/","language":"de","region":"Alemania","category":"Internacional"},
-  {"id":"eltiempo","name":"El Tiempo","url":"https://www.eltiempo.es/noticias/","feed":"https://www.eltiempo.es/noticias/feed","language":"es","region":"España","category":"Tiempo"},
-  {"id":"marca","name":"Marca","url":"https://www.marca.com/","feed":"https://e00-marca.uecdn.es/rss/portada.xml","language":"es","region":"España","category":"Deportes"}
+  {
+    "id": "rtve",
+    "name": "RTVE",
+    "url": "https://www.rtve.es/noticias/",
+    "feed": "https://www.rtve.es/rss/temas_noticias.xml",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad"
+  },
+  {
+    "id": "elpais",
+    "name": "El País",
+    "url": "https://elpais.com/",
+    "feed": "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad"
+  },
+  {
+    "id": "elmundo",
+    "name": "El Mundo",
+    "url": "https://www.elmundo.es/",
+    "feed": "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad"
+  },
+  {
+    "id": "abc",
+    "name": "ABC",
+    "url": "https://www.abc.es/",
+    "feed": "https://www.abc.es/rss/2.0/ultima-hora/",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad"
+  },
+  {
+    "id": "larazon",
+    "name": "La Razón",
+    "url": "https://www.larazon.es/",
+    "feed": "https://www.larazon.es/rss/portada.xml",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad"
+  },
+  {
+    "id": "eldiario",
+    "name": "elDiario.es",
+    "url": "https://www.eldiario.es/",
+    "feed": "https://www.eldiario.es/rss/",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad"
+  },
+  {
+    "id": "publico",
+    "name": "Público",
+    "url": "https://www.publico.es/",
+    "feed": "https://www.publico.es/rss/",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad"
+  },
+  {
+    "id": "20minutos",
+    "name": "20minutos",
+    "url": "https://www.20minutos.es/",
+    "feed": "https://www.20minutos.es/rss/",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad"
+  },
+  {
+    "id": "lavanguardia",
+    "name": "La Vanguardia",
+    "url": "https://www.lavanguardia.com/",
+    "feed": "https://www.lavanguardia.com/rss/home.xml",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad"
+  },
+  {
+    "id": "elconfidencial",
+    "name": "El Confidencial",
+    "url": "https://www.elconfidencial.com/",
+    "feed": "https://rss.elconfidencial.com/espana/",
+    "language": "es",
+    "region": "España",
+    "category": "Política"
+  },
+  {
+    "id": "europapress",
+    "name": "Europa Press",
+    "url": "https://www.europapress.es/",
+    "feed": "https://www.europapress.es/rss/rss.aspx",
+    "language": "es",
+    "region": "España",
+    "category": "Actualidad",
+    "kind": "primary"
+  },
+  {
+    "id": "expansion",
+    "name": "Expansión",
+    "url": "https://www.expansion.com/",
+    "feed": "https://e00-expansion.uecdn.es/rss/portada.xml",
+    "language": "es",
+    "region": "España",
+    "category": "Economía"
+  },
+  {
+    "id": "xataka",
+    "name": "Xataka",
+    "url": "https://www.xataka.com/",
+    "feed": "https://www.xataka.com/index.xml",
+    "language": "es",
+    "region": "España",
+    "category": "Tecnología"
+  },
+  {
+    "id": "genbeta",
+    "name": "Genbeta",
+    "url": "https://www.genbeta.com/",
+    "feed": "https://www.genbeta.com/index.xml",
+    "language": "es",
+    "region": "España",
+    "category": "Tecnología"
+  },
+  {
+    "id": "microsiervos",
+    "name": "Microsiervos",
+    "url": "https://www.microsiervos.com/",
+    "feed": "https://www.microsiervos.com/index.xml",
+    "language": "es",
+    "region": "España",
+    "category": "Ciencia"
+  },
+  {
+    "id": "sinc",
+    "name": "Agencia SINC",
+    "url": "https://www.agenciasinc.es/",
+    "feed": "https://www.agenciasinc.es/feed/Noticias",
+    "language": "es",
+    "region": "España",
+    "category": "Ciencia",
+    "kind": "primary"
+  },
+  {
+    "id": "bbc-es",
+    "name": "BBC Mundo",
+    "url": "https://www.bbc.com/mundo",
+    "feed": "https://feeds.bbci.co.uk/mundo/rss.xml",
+    "language": "es",
+    "region": "Internacional",
+    "category": "Internacional"
+  },
+  {
+    "id": "dw-es",
+    "name": "DW Español",
+    "url": "https://www.dw.com/es/",
+    "feed": "https://rss.dw.com/rdf/rss-sp-all",
+    "language": "es",
+    "region": "Internacional",
+    "category": "Internacional"
+  },
+  {
+    "id": "france24",
+    "name": "France 24",
+    "url": "https://www.france24.com/es/",
+    "feed": "https://www.france24.com/es/rss",
+    "language": "es",
+    "region": "Internacional",
+    "category": "Internacional"
+  },
+  {
+    "id": "bbc",
+    "name": "BBC News",
+    "url": "https://www.bbc.com/news",
+    "feed": "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "language": "en",
+    "region": "Reino Unido",
+    "category": "Internacional"
+  },
+  {
+    "id": "guardian",
+    "name": "The Guardian",
+    "url": "https://www.theguardian.com/",
+    "feed": "https://www.theguardian.com/world/rss",
+    "language": "en",
+    "region": "Reino Unido",
+    "category": "Internacional"
+  },
+  {
+    "id": "nasa",
+    "name": "NASA",
+    "url": "https://www.nasa.gov/",
+    "feed": "https://www.nasa.gov/feed/",
+    "language": "en",
+    "region": "Estados Unidos",
+    "category": "Ciencia",
+    "kind": "primary"
+  },
+  {
+    "id": "lemonde",
+    "name": "Le Monde",
+    "url": "https://www.lemonde.fr/",
+    "feed": "https://www.lemonde.fr/rss/une.xml",
+    "language": "fr",
+    "region": "Francia",
+    "category": "Internacional"
+  },
+  {
+    "id": "tagesschau",
+    "name": "Tagesschau",
+    "url": "https://www.tagesschau.de/",
+    "feed": "https://www.tagesschau.de/xml/rss2/",
+    "language": "de",
+    "region": "Alemania",
+    "category": "Internacional"
+  },
+  {
+    "id": "eltiempo",
+    "name": "El Tiempo",
+    "url": "https://www.eltiempo.es/noticias/",
+    "feed": "https://www.eltiempo.es/noticias/feed",
+    "language": "es",
+    "region": "España",
+    "category": "Tiempo"
+  },
+  {
+    "id": "marca",
+    "name": "Marca",
+    "url": "https://www.marca.com/",
+    "feed": "https://e00-marca.uecdn.es/rss/portada.xml",
+    "language": "es",
+    "region": "España",
+    "category": "Deportes"
+  },
+  {
+    "id": "eldiario-andalucia",
+    "name": "elDiario.es · Andalucía",
+    "url": "https://www.eldiario.es/andalucia/",
+    "feed": "https://www.eldiario.es/rss/andalucia/",
+    "language": "es",
+    "region": "Andalucía",
+    "category": "Actualidad"
+  },
+  {
+    "id": "eldiario-madrid",
+    "name": "elDiario.es · Madrid",
+    "url": "https://www.eldiario.es/madrid/",
+    "feed": "https://www.eldiario.es/rss/madrid/",
+    "language": "es",
+    "region": "Madrid",
+    "category": "Actualidad"
+  },
+  {
+    "id": "eldiario-cv",
+    "name": "elDiario.es · Comunitat Valenciana",
+    "url": "https://www.eldiario.es/comunitat-valenciana/",
+    "feed": "https://www.eldiario.es/rss/comunitat-valenciana/",
+    "language": "es",
+    "region": "Comunitat Valenciana",
+    "category": "Actualidad"
+  },
+  {
+    "id": "eldiario-euskadi",
+    "name": "elDiario.es · Euskadi",
+    "url": "https://www.eldiario.es/euskadi/",
+    "feed": "https://www.eldiario.es/rss/euskadi/",
+    "language": "es",
+    "region": "País Vasco",
+    "category": "Actualidad"
+  },
+  {
+    "id": "eldiario-canarias",
+    "name": "Canarias Ahora",
+    "url": "https://www.eldiario.es/canariasahora/",
+    "feed": "https://www.eldiario.es/rss/canariasahora/",
+    "language": "es",
+    "region": "Canarias",
+    "category": "Actualidad"
+  },
+  {
+    "id": "eldiario-aragon",
+    "name": "elDiario.es · Aragón",
+    "url": "https://www.eldiario.es/aragon/",
+    "feed": "https://www.eldiario.es/rss/aragon/",
+    "language": "es",
+    "region": "Aragón",
+    "category": "Actualidad"
+  },
+  {
+    "id": "eldiario-cantabria",
+    "name": "elDiario.es · Cantabria",
+    "url": "https://www.eldiario.es/cantabria/",
+    "feed": "https://www.eldiario.es/rss/cantabria/",
+    "language": "es",
+    "region": "Cantabria",
+    "category": "Actualidad"
+  },
+  {
+    "id": "eldiario-extremadura",
+    "name": "elDiario.es · Extremadura",
+    "url": "https://www.eldiario.es/extremadura/",
+    "feed": "https://www.eldiario.es/rss/extremadura/",
+    "language": "es",
+    "region": "Extremadura",
+    "category": "Actualidad"
+  },
+  {
+    "id": "vilaweb",
+    "name": "VilaWeb",
+    "url": "https://www.vilaweb.cat/",
+    "feed": "https://www.vilaweb.cat/feed/",
+    "language": "ca",
+    "region": "Cataluña",
+    "category": "Actualidad"
+  },
+  {
+    "id": "ara",
+    "name": "ARA",
+    "url": "https://www.ara.cat/",
+    "feed": "https://www.ara.cat/rss/",
+    "language": "ca",
+    "region": "Cataluña",
+    "category": "Actualidad"
+  },
+  {
+    "id": "rac1",
+    "name": "RAC1",
+    "url": "https://www.rac1.cat/",
+    "feed": "https://www.rac1.cat/rss/home.xml",
+    "language": "ca",
+    "region": "Cataluña",
+    "category": "Actualidad"
+  },
+  {
+    "id": "codigocero",
+    "name": "Código Cero",
+    "url": "https://codigocero.com/",
+    "feed": "https://codigocero.com/feed/",
+    "language": "gl",
+    "region": "Galicia",
+    "category": "Tecnología"
+  },
+  {
+    "id": "boe",
+    "name": "Boletín Oficial del Estado",
+    "url": "https://www.boe.es/",
+    "feed": "https://www.boe.es/rss/boe.php",
+    "language": "es",
+    "region": "España",
+    "category": "Política",
+    "kind": "primary"
+  },
+  {
+    "id": "un-es",
+    "name": "Naciones Unidas",
+    "url": "https://news.un.org/es/",
+    "feed": "https://news.un.org/feed/subscribe/es/news/all/rss.xml",
+    "language": "es",
+    "region": "Internacional",
+    "category": "Internacional",
+    "kind": "primary"
+  },
+  {
+    "id": "ecb",
+    "name": "Banco Central Europeo",
+    "url": "https://www.ecb.europa.eu/",
+    "feed": "https://www.ecb.europa.eu/rss/press.html",
+    "language": "en",
+    "region": "Unión Europea",
+    "category": "Economía",
+    "kind": "primary"
+  },
+  {
+    "id": "esa",
+    "name": "Agencia Espacial Europea",
+    "url": "https://www.esa.int/",
+    "feed": "https://www.esa.int/rssfeed/Our_Activities/Space_Science",
+    "language": "en",
+    "region": "Unión Europea",
+    "category": "Ciencia",
+    "kind": "primary"
+  },
+  {
+    "id": "cambridge",
+    "name": "Universidad de Cambridge",
+    "url": "https://www.cam.ac.uk/research",
+    "feed": "https://www.cam.ac.uk/news/feed",
+    "language": "en",
+    "region": "Reino Unido",
+    "category": "Ciencia",
+    "kind": "primary"
+  },
+  {
+    "id": "who",
+    "name": "Organización Mundial de la Salud",
+    "url": "https://www.who.int/",
+    "feed": "https://www.who.int/rss-feeds/news-english.xml",
+    "language": "en",
+    "region": "Internacional",
+    "category": "Sociedad",
+    "kind": "primary"
+  },
+  {
+    "id": "berria",
+    "name": "Berria",
+    "url": "https://www.berria.eus/",
+    "feed": "https://www.berria.eus/uploads/feeds/feed_berria_eu.xml",
+    "language": "eu",
+    "region": "País Vasco",
+    "category": "Actualidad"
+  },
+  {
+    "id": "praza",
+    "name": "Praza Pública",
+    "url": "https://praza.gal/",
+    "feed": "https://praza.gal/rss/novas",
+    "language": "gl",
+    "region": "Galicia",
+    "category": "Actualidad"
+  },
+  {
+    "id": "galiciaconfidencial",
+    "name": "Galicia Confidencial",
+    "url": "https://www.galiciaconfidencial.com/",
+    "feed": "https://www.galiciaconfidencial.com/feed/all",
+    "language": "gl",
+    "region": "Galicia",
+    "category": "Actualidad"
+  }
 ]
