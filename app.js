@@ -1,3 +1,8 @@
+import {sanitizeLibrary,sanitizeComfort,libraryMatches,personalTags,translationLanguages,gestureActions} from './lib/reading-tools.js';
+import {createTranslationEngine} from './lib/translation.js';
+import {createReaderTools} from './lib/reader-tools.js';
+import {createLibraryView} from './lib/library-view.js';
+import {createDailyTools} from './lib/daily-tools.js';
 import {articleTime,contentKind,variantGroups,rankingReasons} from './lib/story-analysis.js';
 import {createStoryStore,watchUnread} from './lib/story-store.js';
 import {createCoverageView,renderStoriesPanel} from './lib/coverage-view.js';
@@ -12,6 +17,7 @@ import {readingPreferences,sanitizeFrontpages,readingEstimate} from './lib/prefe
 
 const $ = selector => document.querySelector(selector);
 const icons = {
+  daily:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8h10M7 12h4M7 16h4M15 12h2M15 16h2"/>',
   follow:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3"/>',compare:'<rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/>',
   rss:'<path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>',
   filter:'<path d="M3 4h18l-7 8v7l-4 2v-9z"/>', type:'<path d="M4 5h13M10.5 5v15M6 20h9M16 12h5M18.5 12v8"/>',
@@ -52,9 +58,16 @@ let savedOnly = false, panelName = '', currentArticle = null, currentCluster = n
 let frontpages=sanitizeFrontpages(readStorage('extra-extra:frontpages',[]));
 let mutes=activeMutes(Array.isArray(readStorage('extra-extra:mutes',[]))?readStorage('extra-extra:mutes',[]):[]);
 let activeFrontpage='',loadingMore=false,lastCalendarDay=calendarKey(new Date());
+let library=sanitizeLibrary(readStorage('extra-extra:library',{})),comfort=sanitizeComfort(readStorage('extra-extra:comfort',{}));
+const libraryFilter={collection:'',tag:''};
+let readerQueue=[],queueIndex=0,frontpageJob=null;
+function persistComfort(){writeStorage('extra-extra:comfort',comfort);document.body.classList.toggle('gesture-enabled',comfort.swipeLeft!=='none'||comfort.swipeRight!=='none');}
+function persistLibrary(){writeStorage('extra-extra:library',library);}
+function ensureSaved(article){if(!isSaved(article)){saved.unshift({...article,sourceName:sourceFor(article).name});writeStorage('extra-extra:saved',saved);}if(currentArticle)updateReaderSave();}
+
 
 function persist() { writeStorage('extra-extra:preferences', prefs); }
-function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 4200); }
+function toast(message,undo=null) { $('#toast').innerHTML=esc(message)+(undo?' <button id="undo-action">Deshacer</button>':'');if(undo)$('#undo-action').onclick=()=>{undo();$('#toast').hidden=true;};$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,undo?6500:4200); }
 function applyAppearance() {
   const hour = new Date().getHours();
   $('#edition-date').textContent=new Intl.DateTimeFormat('es',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
@@ -103,12 +116,12 @@ function renderCategories() {
   $('#categories').innerHTML = categories.map((category,i) => `<button data-category="${esc(category)}" aria-pressed="${filters.category === category}">${i === 0 ? 'Portada' : esc(category)}</button>`).join('');
 }
 function resetFilters() {
-  activeFrontpage='';
+  activeFrontpage='';libraryFilter.collection='';libraryFilter.tag='';
   Object.assign(filters, {query:'', category:'Actualidad', language:'', territory:'', kind:'', hours:0, unread:false, topic:null, topicName:''});
   if ($('#search')) $('#search').value = ''; limit = 36; renderCategories(); render();
 }
 function activeFilters() {
-  const labels = [savedOnly&&'Leer después',filters.kind&&{news:'Información',opinion:'Opinión',sponsored:'Patrocinado',unknown:'Sin etiqueta editorial'}[filters.kind],filters.query && `«${filters.query}»`,filters.territory&&territories.find(t=>t.id===filters.territory)?.name,prefs.nearby&&`Cerca de ${territories.find(t=>t.id===prefs.nearby)?.name}`, filters.language && `Idioma: ${filters.language.toUpperCase()}`, filters.hours && `Últimas ${filters.hours} h`, filters.unread && 'Sin leer', filters.topicName, prefs.sources?.length !== sources.length && `${prefs.sources?.length || 0} medios`,activeMutes(mutes).length&&`${activeMutes(mutes).length} silencios`].filter(Boolean);
+  const labels = [savedOnly&&'Leer después',savedOnly&&libraryFilter.collection&&(library.collections.find(c=>c.id===libraryFilter.collection)?.name||'Sin colección'),savedOnly&&libraryFilter.tag&&'#'+libraryFilter.tag,filters.kind&&{news:'Información',opinion:'Opinión',sponsored:'Patrocinado',unknown:'Sin etiqueta editorial'}[filters.kind],filters.query && `«${filters.query}»`,filters.territory&&territories.find(t=>t.id===filters.territory)?.name,prefs.nearby&&`Cerca de ${territories.find(t=>t.id===prefs.nearby)?.name}`, filters.language && `Idioma: ${filters.language.toUpperCase()}`, filters.hours && `Últimas ${filters.hours} h`, filters.unread && 'Sin leer', filters.topicName, prefs.sources?.length !== sources.length && `${prefs.sources?.length || 0} medios`,activeMutes(mutes).length&&`${activeMutes(mutes).length} silencios`].filter(Boolean);
   const container = $('#active-filters');
   container.hidden = !labels.length;
   container.innerHTML = labels.map(label => `<span class="chip">${esc(label)}</span>`).join('') + (labels.length ? '<button id="clear-filters">Limpiar filtros</button>' : '');
@@ -127,7 +140,9 @@ function storyHTML(cluster, i) {
   const article = cluster.articles[0], source = sourceFor(article);
   const count = new Set(cluster.articles.map(a => a.source)).size;
   const category = categoryOf(article, source);
-  const summary = article.summary.replace(/\s+/g,' ');
+  const translated=comfort.translatedCards&&article.language!==comfort.target?translationEngine.peekCard(article):null;
+  const headline=translated?.title||article.title,displayLanguage=translated?.target||article.language;
+  const summary = (translated?.summary||article.summary||'').replace(/\s+/g,' ');
   const image = safeURL(article.image);
   const hasImage = image && prefs.images;
   const modified=article.updated&&Date.parse(article.updated)>(Date.parse(article.published)||0)+60000;
@@ -141,9 +156,9 @@ function storyHTML(cluster, i) {
       <button class="story-save" data-save="${esc(article.id)}" aria-label="${isSaved(article) ? 'Retirar de Leer después' : 'Guardar para leer después'}: ${esc(article.title)}" aria-pressed="${isSaved(article)}">${icon('bookmark')}</button>
       ${count > 1 ? `<button class="coverage" data-compare="${esc(article.id)}" aria-label="Comparar ${count} medios: ${esc(article.title)}">${count} medios · Comparar ↗</button>` : ''}
     </div>
-    <div class="story-body"><div class="story-meta"><span class="source-mark" aria-hidden="true">${esc(source.name.replace(/^(El |La |The )/,'').slice(0,2))}</span><span class="source-name">${esc(source.name)}</span><span aria-hidden="true">·</span><time datetime="${esc(displayDate || '')}" title="${esc(dateTitle)}">${time}</time>${article.language !== 'es' ? `<span class="language-tag">${esc(article.language.toUpperCase())}</span>` : ''}<span class="story-section">${esc(category)}</span>${editorial.type!=='unknown'?`<span class="editorial-badge" title="${esc(editorial.basis)}">${esc(editorial.label)}</span>`:''}</div>
-    <h3><button data-open="${esc(article.id)}" lang="${esc(article.language)}">${esc(article.title)}</button></h3>
-    ${summary ? `<p class="story-summary" lang="${esc(article.language)}">${esc(summary)}</p>` : ''}
+    <div class="story-body"><div class="story-meta"><span class="source-mark" aria-hidden="true">${esc(source.name.replace(/^(El |La |The )/,'').slice(0,2))}</span><span class="source-name">${esc(source.name)}</span><span aria-hidden="true">·</span><time datetime="${esc(displayDate || '')}" title="${esc(dateTitle)}">${time}</time>${article.language !== 'es' ? `<span class="language-tag">${esc(article.language.toUpperCase())}</span>` : ''}<span class="story-section">${esc(category)}</span>${translated?'<span class="translation-badge">Traducido</span>':''}${editorial.type!=='unknown'?`<span class="editorial-badge" title="${esc(editorial.basis)}">${esc(editorial.label)}</span>`:''}</div>
+    <h3><button data-open="${esc(article.id)}" lang="${esc(displayLanguage)}">${esc(headline)}</button></h3>
+    ${summary ? `<p class="story-summary" lang="${esc(displayLanguage)}">${esc(summary)}</p>` : ''}
     </div></article>`;
 }
 function connectStoryImages(root) {
@@ -180,7 +195,7 @@ function loadMoreStories() {
 }
 function render() {
   if(!prefs.sources)return;
-  const base=savedOnly?saved:data.articles;
+  const base=savedOnly?saved.filter(a=>libraryMatches(a,library,libraryFilter)):data.articles;
   const filtered=filterArticles(base,{...filters,sources:savedOnly?[...new Set([...prefs.sources,...saved.map(a=>a.source)])]:prefs.sources,read,mutes,searchContent:savedOnly},sources);
   allClusters=organizeEdition(groupArticles(filtered,prefs.group),{order:sortOrder,priority:cluster=>(cluster.articles.some(a=>mediaSettings.priorities[a.source])?1.3:1)*(prefs.nearby&&cluster.articles.some(a=>matchesTerritory(a,prefs.nearby))?1.4:1),sourceLimit:prefs.sourceLimit,topicLimit:prefs.topicLimit,categoryFor:article=>categoryOf(article,sourceFor(article))}).flatMap(day=>day.clusters);
   visibleClusters=allClusters.slice(0,limit);
@@ -238,8 +253,8 @@ async function refreshSource(id) {
   }catch(error){const kept=currentArticles(id),previous=data.status[id];data.articles=[...data.articles.filter(a=>a.source!==id),...kept];data.status[id]={state:kept.length?'stale':'error',count:kept.length,checked,lastSuccess:previous?.lastSuccess,message:error.message};return false;}
 }
 function scheduleAutomatic(){
-  clearTimeout(automaticTimer);if(document.hidden)return;
-  automaticTimer=setTimeout(()=>{if(!document.hidden)loadNews();},Math.max(1000,AUTO_REFRESH-(Date.now()-lastLiveCheck)));
+  clearTimeout(automaticTimer);if(document.hidden&&!comfort.alertsEnabled)return;
+  automaticTimer=setTimeout(()=>{if(!document.hidden||comfort.alertsEnabled)loadNews();},Math.max(1000,AUTO_REFRESH-(Date.now()-lastLiveCheck)));
 }
 function queueLive(){clearTimeout(liveTimer);liveTimer=setTimeout(()=>liveRefresh(),500);}
 async function liveRefresh(manual=false,ids=null) {
@@ -303,8 +318,10 @@ function renderSourcesPanel(){mediaPanel.render();}
 function openPanel(name) {
   closeMenu();
   panelName = name;
-  const titles = {stories:'Historias seguidas',sources:'Medios',filters:'Filtros y presentación',appearance:'Lectura',about:'Acerca de Extra Extra',search:'Buscar noticias',install:'Instalar Extra Extra'};
+  const titles = {daily:'Al día',library:'Colecciones y etiquetas',stories:'Historias seguidas',sources:'Medios',filters:'Filtros y presentación',appearance:'Lectura',about:'Acerca de Extra Extra',search:'Buscar noticias',install:'Instalar Extra Extra'};
   $('#panel-title').textContent = titles[name];
+  if (name === 'daily') dailyTools.render();
+  if (name === 'library') libraryView.render();
   if (name === 'sources') renderSourcesPanel();
   if (name === 'stories') renderStoriesPanel({store:storyStore,open:coverageView.open,changed:render});
   if (name === 'filters') renderFiltersPanel();
@@ -337,6 +354,7 @@ function renderFiltersPanel() {
   $('#apply-filters').onclick=()=>{$('#panel').close();window.scrollTo({top:0});};
   renderPersonalTools();
   renderTerritoryTools();
+  renderLibraryFilters();
   $('#filter-language').closest('.settings-field').insertAdjacentHTML('afterend',`<label class="settings-field"><span>Tipo editorial</span><select id="filter-kind"><option value="">Todos los tipos</option><option value="news">Información</option><option value="opinion">Opinión</option><option value="sponsored">Patrocinado</option><option value="unknown">Sin etiqueta editorial</option></select></label><p class="small-note">Clasificación basada en etiquetas y metadatos del medio; no evalúa su veracidad.</p>`);
   $('#filter-kind').value=filters.kind;$('#filter-kind').onchange=e=>{filters.kind=e.target.value;limit=36;render();};
 }
@@ -381,9 +399,10 @@ function renderAppearancePanel() {
   $('#font').onchange = event => { prefs.font=event.target.value;persist();applyAppearance(); };
   $('#font-size').oninput = event => { prefs.size=Number(event.target.value);$('#size-output').textContent=`${prefs.size} px`;persist();applyAppearance(); };
   $('#show-images').onchange = event => { prefs.images=event.target.checked;persist();applyAppearance();render(); };
-  $('#export-settings').onclick = () => download('extra-extra-copia.json',JSON.stringify({version:1,preferences:prefs,saved,read,frontpages,mutes,media:mediaSettings,followed:storyStore.watches},null,2),'application/json');
+  $('#export-settings').onclick = () => download('extra-extra-copia.json',JSON.stringify({version:1,preferences:prefs,saved,read,frontpages,mutes,media:mediaSettings,followed:storyStore.watches,library,comfort,digests:dailyTools.state.digests},null,2),'application/json');
   $('#import-settings').onclick = () => $('#settings-file').click();
   $('#settings-file').onchange = importSettings;
+  renderComfortSettings();
   const ranges=[['line-height','Interlineado','lineHeight',1.3,2.4,.1,''],['reader-width','Ancho del texto','readerWidth',440,960,20,' px'],['reader-margin','Márgenes del lector','readerMargin',12,64,2,' px'],['paragraph-gap','Separación entre párrafos','paragraphGap',.4,2,.1,' em']];
   $('#show-images').closest('label').insertAdjacentHTML('beforebegin',`<details class="reading-options"><summary>Distribución del texto</summary>${ranges.map(([id,label,key,min,max,step,suffix])=>`<div class="settings-field"><label for="${id}">${label} <output id="${id}-output">${prefs[key]}${suffix}</output></label><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${prefs[key]}"></div>`).join('')}</details><details class="reading-options"><summary>Accesibilidad</summary><label class="check-row"><input id="high-contrast" type="checkbox" ${prefs.highContrast?'checked':''}> Alto contraste</label><label class="check-row"><input id="large-controls" type="checkbox" ${prefs.largeControls?'checked':''}> Controles de mayor tamaño</label><label class="check-row"><input id="reduce-motion" type="checkbox" ${prefs.reduceMotion?'checked':''}> Reducir animaciones</label></details>`);
   for(const [id,,key,,, ,suffix] of ranges)$('#'+id).oninput=event=>{prefs[key]=Number(event.target.value);$('#'+id+'-output').textContent=prefs[key]+suffix;persist();applyAppearance();};
@@ -403,6 +422,9 @@ async function importSettings(event) {
     const backup=JSON.parse(await file.text());
     if(backup.version!==1 || !backup.preferences || !Array.isArray(backup.saved))throw new Error();
     const p=backup.preferences;
+    if(backup.library){const incoming=sanitizeLibrary(backup.library);library=sanitizeLibrary({collections:[...library.collections,...incoming.collections],items:{...library.items,...incoming.items}});persistLibrary();}
+    if(backup.comfort){comfort=sanitizeComfort(backup.comfort,true);persistComfort();}
+    if(Array.isArray(backup.digests)){dailyTools.importDigests(backup.digests);}
     if(Array.isArray(backup.followed))await storyStore.importWatches(backup.followed);
     if(backup.media){const imported=sourceSettings(backup.media);mediaSettings=sourceSettings({custom:[...mediaSettings.custom,...imported.custom],folders:[...mediaSettings.folders,...imported.folders],assignments:{...mediaSettings.assignments,...imported.assignments},priorities:{...mediaSettings.priorities,...imported.priorities},overrides:{...mediaSettings.overrides,...imported.overrides}});sources=mergeSources(catalog,mediaSettings);writeStorage('extra-extra:media',mediaSettings);}
     if(territories.some(t=>t.id===p.nearby)||p.nearby==='')prefs.nearby=p.nearby;
@@ -422,11 +444,14 @@ async function importSettings(event) {
     persist();writeStorage('extra-extra:saved',saved);writeStorage('extra-extra:read',read);applyAppearance();render();renderAppearancePanel();toast('Copia importada. Tu quiosco ya está preparado.');
   }catch{toast('No se ha podido importar esta copia de Extra Extra.');}
 }
-function openReader(id, cluster = null) {
+function openReader(id, cluster = null, options = {}) {
   const found=cluster || allClusters.find(c=>c.articles.some(a=>a.id===id));
   const article=found?.articles.find(a=>a.id===id) || saved.find(a=>a.id===id);
   if(!article)return;
-  currentArticle=article;currentCluster=found || {articles:[article]};
+  const selectedCluster=found||{articles:[article]};
+  if(options.queue)readerQueue=options.queue;else if(!$('#reader').open)readerQueue=[...allClusters];
+  queueIndex=readerQueue.findIndex(c=>c.articles.some(a=>a.id===id));if(queueIndex<0){readerQueue=[selectedCluster];queueIndex=0;}
+  currentArticle=article;currentCluster=selectedCluster;
   if(!read.includes(id)){read.push(id);read=read.slice(-5000);writeStorage('extra-extra:read',read);}
   const followed=storyStore.find(currentCluster);if(followed)storyStore.seen(followed.id,currentArticle);
   drawReader();updateStoryUI();
@@ -434,35 +459,54 @@ function openReader(id, cluster = null) {
   $('#reader').scrollTop=0;
   // Keep the visible card in place until closing the reader, especially in unread mode.
 }
-function drawReader(translated = null) {
-  const a=currentArticle,s=sourceFor(a),cluster=currentCluster;
-  const text=translated?.text || a.content || a.summary;
-  const image=safeURL(a.image);
-  const estimate=readingEstimate(a);
-  const editorial=contentKind(a);
-  const readingTime=estimate?` · ≈${estimate.minutes} min de lectura${estimate.excerpt?' del extracto':''}`:'';
-  const translateURL=`https://translate.google.com/translate?sl=auto&tl=es&u=${encodeURIComponent(a.url)}`;
-  $('#reader-content').innerHTML=`<div class="reader-meta">${esc(s.name)} · ${a.published?'Publicada '+esc(dateLabel(a.published)):'Publicación sin fecha'}${a.updated?' · Actualizada '+esc(dateLabel(a.updated)):''} · ${esc(a.language.toUpperCase())}${readingTime}${editorial.type!=='unknown'?' · '+esc(editorial.label):''}</div><h1 lang="${translated?'es':esc(a.language)}">${esc(translated?.title||a.title)}</h1>${image&&prefs.images?`<img class="reader-image" src="${esc(image)}" alt="" referrerpolicy="no-referrer">`:''}<p class="reader-excerpt">${a.content?'Texto distribuido por el medio en su RSS. Puede no incluir el artículo completo.':'Extracto distribuido por el medio. Continúa en la publicación original para leer el artículo.'}${translated?' Traducción automática al español.':''}</p><div class="reader-text" lang="${translated?'es':esc(a.language)}">${String(text||'Este medio solo ha compartido el titular.').split(/\n+/).filter(Boolean).map(p=>`<p>${esc(p)}</p>`).join('')}</div><div class="reader-links"><a class="primary-link" href="${esc(safeURL(a.url))}" target="_blank" rel="noopener noreferrer">Leer en ${esc(s.name)} ${icon('arrow')}</a>${a.language!=='es'?`<button id="translate-local" class="outline-button">${translated?'Ver original':'Traducir al español'}</button><a href="${esc(translateURL)}" target="_blank" rel="noopener noreferrer" class="text-button">Abrir traducción web ↗</a>`:''}</div><p id="translation-status" class="small-note" role="status">${a.language!=='es'?'La traducción local depende del navegador. La alternativa web abre Google Translate y comparte con él la URL del artículo. Los límites de acceso del medio pueden seguir aplicándose.':''}</p>${cluster.articles.length>1?`<section class="coverage-list"><h2>Coberturas de la noticia</h2><p class="small-note">Agrupación aproximada por titulares, entidades, suceso y fecha, también entre idiomas. Puedes desactivarla en Filtros.</p>${cluster.articles.map(other=>`<button data-coverage-id="${esc(other.id)}"><small>${esc(sourceFor(other).name)} · ${relativeTime(other.published)}</small><span>${esc(other.title)}</span></button>`).join('')}</section>`:''}`;
-  $('#reader-content').querySelector('img')?.addEventListener('error',event=>event.target.remove(),{once:true});
+function drawReader() {
+  const a=currentArticle,s=sourceFor(a),cluster=currentCluster,image=safeURL(a.image),estimate=readingEstimate(a),editorial=contentKind(a);
+  const readingTime=estimate?` · ≈${estimate.minutes} min${estimate.excerpt?' del extracto':''}`:'';
+  const translateURL=`https://translate.google.com/translate?sl=auto&tl=${comfort.target}&u=${encodeURIComponent(a.url)}`;
+  $('#reader-content').innerHTML=`<div class="reader-meta">${esc(s.name)} · ${a.published?'Publicada '+esc(dateLabel(a.published)):'Publicación sin fecha'}${a.updated?' · Actualizada '+esc(dateLabel(a.updated)):''} · ${esc(a.language.toUpperCase())}${readingTime}${editorial.type!=='unknown'?' · '+esc(editorial.label):''}</div><h1 lang="${esc(a.language)}">${esc(a.title)}</h1>${image&&prefs.images?`<figure class="reader-photo"><button data-zoom-image aria-label="Ampliar fotografía"><img class="reader-image" src="${esc(image)}" alt="${esc(a.imageCaption||'Fotografía de '+s.name)}" referrerpolicy="no-referrer"></button>${a.imageCaption||a.imageCredit?`<figcaption>${esc(a.imageCaption||'')}${a.imageCredit?' · '+esc(a.imageCredit):''}</figcaption>`:''}</figure>`:''}<p class="reader-excerpt">${a.content?'Texto distribuido por el medio en su RSS. Puede no incluir el artículo completo.':'Extracto distribuido por el medio. Continúa en la publicación original para leer el artículo.'}</p><div id="reader-extensions"></div><div id="article-text" class="reader-text" lang="${esc(a.language)}">${String(a.content||a.summary||'El medio solo comparte el titular.').split(/\n+/).filter(Boolean).map(p=>`<p>${esc(p)}</p>`).join('')}</div><div class="reader-links"><a class="primary-link" href="${esc(safeURL(a.url))}" target="_blank" rel="noopener noreferrer">Leer en ${esc(s.name)} ${icon('arrow')}</a>${a.language!==comfort.target?`<a href="${esc(translateURL)}" target="_blank" rel="noopener noreferrer" class="text-button">Abrir traducción web ↗</a>`:''}</div>${a.language!==comfort.target?'<p class="small-note">La traducción web comparte con Google Translate la URL del artículo. Se mantienen los límites de acceso del medio.</p>':''}<div id="reader-library"></div>${cluster.articles.length>1?`<section class="coverage-list"><h2>Coberturas de la noticia</h2>${cluster.articles.map(other=>`<button data-coverage-id="${esc(other.id)}"><small>${esc(sourceFor(other).name)} · ${relativeTime(other.published)}</small><span>${esc(other.title)}</span></button>`).join('')}</section>`:''}<div class="reader-links"><button id="open-story-context" class="outline-button">Coberturas y contexto</button></div><details class="context-detail"><summary>Por qué aparece en portada</summary><ul class="rank-reasons">${rankingReasons(cluster,rankingContext(cluster)).map(r=>'<li>'+esc(r)+'</li>').join('')}</ul></details><nav class="reader-sequence" aria-label="Lectura consecutiva"><button id="reader-previous" ${queueIndex<=0?'disabled':''}>← Anterior</button><span>${queueIndex+1} / ${readerQueue.length}</span><button id="reader-next" ${queueIndex>=readerQueue.length-1?'disabled':''}>Siguiente →</button></nav>`;
+  $('#reader-content').querySelector('img')?.addEventListener('error',event=>event.target.closest('figure').remove(),{once:true});
   $('#reader-content').querySelectorAll('[data-coverage-id]').forEach(button=>button.onclick=()=>openReader(button.dataset.coverageId,cluster));
-  if($('#translate-local'))$('#translate-local').onclick=()=>translated?drawReader():translateArticle();
-  $('#reader-content').insertAdjacentHTML('beforeend','<div class="reader-links"><button id="open-story-context" class="outline-button">Coberturas y contexto</button></div><details class="context-detail"><summary>Por qué aparece en portada</summary><ul class="rank-reasons">'+rankingReasons(cluster,rankingContext(cluster)).map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul></details>');
   $('#open-story-context').onclick=()=>coverageView.open(currentCluster);
-  updateReaderSave();updateStoryUI();
+  $('#reader-previous').onclick=()=>moveReader(-1);$('#reader-next').onclick=()=>moveReader(1);
+  readerTools.attach(a);libraryView.attach(a);updateReaderSave();updateStoryUI();
 }
-async function translateArticle() {
-  const article=currentArticle;
-  if(!('Translator' in window)){$('#translation-status').textContent='Este navegador no ofrece traducción local. Puedes usar «Abrir traducción web» o la función de traducir de tu navegador.';return;}
-  const button=$('#translate-local');button.disabled=true;
-  $('#translation-status').textContent='Preparando traducción en tu dispositivo. Puede ser necesario descargar el modelo de idioma…';
-  let translator;
-  try {
-    // create() is invoked within the click activation; some browsers require it.
-    translator=await window.Translator.create({sourceLanguage:article.language,targetLanguage:'es'});
-    const [title,text]=await Promise.all([translator.translate(article.title),translator.translate(article.content||article.summary)]);
-    if(currentArticle.id===article.id)drawReader({title,text});
-  }catch{if(currentArticle.id===article.id)$('#translation-status').textContent='La traducción local no está disponible para este idioma o dispositivo. Prueba la traducción web.';}
-  finally{translator?.destroy();if(button.isConnected)button.disabled=false;}
+function moveReader(delta){const cluster=readerQueue[queueIndex+delta];if(cluster)openReader(cluster.articles[0].id,cluster);}
+
+function allPersonalTags(){return [...new Map(saved.flatMap(a=>library.items[a.id]?.tags||[]).map(t=>[normalize(t),t])).values()].sort((a,b)=>a.localeCompare(b,'es')).slice(0,120);}
+function renderLibraryFilters(){
+  const block=document.createElement('details');block.className='reading-options';block.open=savedOnly;
+  block.innerHTML=`<summary>Leer después: colecciones y etiquetas</summary><label class="settings-field"><span>Colección</span><select id="filter-collection"><option value="">Todas</option><option value="@none">Sin colección</option>${library.collections.map(c=>`<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</select></label><label class="settings-field"><span>Etiqueta</span><select id="filter-tag"><option value="">Todas</option>${allPersonalTags().map(t=>`<option>${esc(t)}</option>`).join('')}</select></label><div class="panel-actions"><button data-panel="library">Organizar Leer después</button></div>`;
+  $('#filter-saved').closest('label').after(block);
+  $('#filter-collection').value=libraryFilter.collection;$('#filter-tag').value=libraryFilter.tag;
+  for(const [id,key] of [['filter-collection','collection'],['filter-tag','tag']])$('#'+id).onchange=e=>{libraryFilter[key]=e.target.value;savedOnly=true;$('#filter-saved').checked=true;limit=36;render();};
+}
+function renderComfortSettings(){
+  $('#panel-content').insertAdjacentHTML('beforeend',`<details class="reading-options" id="language-options"><summary>Idiomas y audio</summary><label class="settings-field"><span>Idioma de traducción</span><select id="translation-target">${Object.entries(translationLanguages).map(([id,name])=>`<option value="${id}" ${comfort.target===id?'selected':''}>${name}</option>`).join('')}</select></label><label class="settings-field"><span>Servicio de traducción</span><select id="translation-engine"><option value="local" ${comfort.engine==='local'?'selected':''}>En el dispositivo</option><option value="mymemory" ${comfort.engine==='mymemory'?'selected':''}>MyMemory · gratuito con límite diario</option></select></label><p class="small-note">La traducción local depende del navegador y puede descargar modelos. MyMemory recibe los titulares y textos solicitados; no recibe tus guardadas ni preferencias. Su cuota anónima depende de la IP. La aplicación limita las peticiones a unos 4.500 caracteres diarios por navegador. <a href="https://mymemory.translated.net/doc/usagelimits.php" target="_blank" rel="noopener noreferrer">Límites del servicio ↗</a></p><label class="check-row"><input id="bilingual-default" type="checkbox" ${comfort.bilingual?'checked':''}> Mostrar original y traducción juntos en el lector</label><label class="check-row"><input id="translated-cards" type="checkbox" ${comfort.translatedCards?'checked':''}> Mostrar las traducciones guardadas en la portada</label><div class="panel-actions"><button id="translate-frontpage">Traducir siguientes 4 tarjetas</button></div><p id="frontpage-translation-status" class="small-note" role="status">Se traducen titulares y extractos de hasta cuatro tarjetas cargadas, solo al pulsar el botón. Las noticias originales permanecen disponibles.</p><label class="settings-field"><span>Voz de lectura</span><select id="speech-voice"></select></label><p class="small-note">Las voces marcadas «en línea» pueden enviar texto a su proveedor. La disponibilidad y la reproducción con pantalla bloqueada dependen del equipo.</p><label class="settings-field"><span>Velocidad <output id="speech-rate-output">${comfort.rate}×</output></span><input type="range" id="speech-rate" min="0.6" max="1.8" step="0.1" value="${comfort.rate}"></label><label class="check-row"><input id="audio-next" type="checkbox" ${comfort.audioNext?'checked':''}> Continuar con la siguiente noticia al terminar el audio</label></details><details class="reading-options"><summary>Gestos sobre las fichas</summary><p class="small-note">Desliza horizontalmente sobre la foto o el texto. El desplazamiento vertical sigue funcionando. También puedes usar los botones.</p>${[['left','A la izquierda','swipeLeft'],['right','A la derecha','swipeRight']].map(([id,label,key])=>`<label class="settings-field"><span>${label}</span><select id="gesture-${id}">${Object.entries(gestureActions).map(([value,name])=>`<option value="${value}" ${comfort[key]===value?'selected':''}>${name}</option>`).join('')}</select></label>`).join('')}</details>`);
+  for(const [id,key] of [['translation-target','target'],['translation-engine','engine'],['speech-voice','voice'],['gesture-left','swipeLeft'],['gesture-right','swipeRight']])$('#'+id).onchange=e=>{if(key==='target'||key==='engine')frontpageJob?.abort();comfort[key]=e.target.value;persistComfort();render();};
+  for(const [id,key] of [['bilingual-default','bilingual'],['translated-cards','translatedCards'],['audio-next','audioNext']])$('#'+id).onchange=e=>{comfort[key]=e.target.checked;persistComfort();render();};
+  $('#speech-rate').oninput=e=>{comfort.rate=Number(e.target.value);$('#speech-rate-output').textContent=comfort.rate+'×';persistComfort();};
+  $('#translate-frontpage').onclick=translateFrontpage;populateVoices();
+}
+function populateVoices(){const select=$('#speech-voice');if(!select)return;select.innerHTML='<option value="">Automática · preferir voz del dispositivo</option>'+readerTools.voices().map(v=>`<option value="${esc(v.voiceURI)}">${esc(v.name)} · ${esc(v.lang)} · ${v.localService?'dispositivo':'en línea'}</option>`).join('');select.value=comfort.voice;}
+async function translateFrontpage(){
+  if(frontpageJob)return;const candidates=visibleClusters.map(c=>c.articles[0]).filter(a=>a.language!==comfort.target&&!translationEngine.peekCard(a)).slice(0,4),status=$('#frontpage-translation-status'),button=$('#translate-frontpage');
+  if(!candidates.length){status.textContent='No quedan tarjetas cargadas pendientes de traducir al idioma elegido.';return;}
+  const controller=new AbortController();frontpageJob=controller;button.disabled=true;let done=0;
+  const prepared=new Map(candidates.map(a=>[a.language,translationEngine.prepare(a.language,comfort.target,comfort.engine)]));for(const p of prepared.values())p.catch(()=>{});
+  try{for(const article of candidates){controller.signal.throwIfAborted();if(status.isConnected)status.textContent=`Traduciendo tarjeta ${done+1}/${candidates.length}…`;await translationEngine.article(article,{full:false,signal:controller.signal,prepared:prepared.get(article.language)});done++;}comfort.translatedCards=true;persistComfort();render();if($('#translated-cards'))$('#translated-cards').checked=true;if(status.isConnected)status.textContent=`${done} tarjetas traducidas. Puedes volver a pulsar para las siguientes.`;}
+  catch(error){if(done){comfort.translatedCards=true;persistComfort();render();if($('#translated-cards'))$('#translated-cards').checked=true;}if(status.isConnected)status.textContent=controller.signal.aborted?'Traducción cancelada. Se conservan los resultados terminados.':`${done?done+' tarjetas traducidas. ':''}${error.message||'No se ha podido traducir.'}`;}
+  finally{if(frontpageJob===controller)frontpageJob=null;if(button.isConnected)button.disabled=false;}
+}
+function runCardAction(id,action){
+  const article=saved.find(a=>a.id===id)||data.articles.find(a=>a.id===id);if(!article)return;const hadSaved=isSaved(article),hadRead=read.includes(id);
+  if(action==='next'){const index=allClusters.findIndex(c=>c.articles.some(a=>a.id===id)),next=allClusters[index+1];if(index>=0&&next)openReader(next.articles[0].id,next);else toast('No hay otra noticia después de esta en la edición filtrada.');return;}
+  if(action==='context'){const cluster=allClusters.find(c=>c.articles.some(a=>a.id===id));if(cluster)coverageView.open(cluster);return;}
+  if(action==='save')saveArticle(article);
+  if(action==='read'&&!hadRead)read.push(id);
+  if(action==='pending'){read=read.filter(v=>v!==id);ensureSaved(article);}
+  if(!['save','read','pending'].includes(action))return;
+  read=read.slice(-5000);writeStorage('extra-extra:read',read);render();
+  toast(action==='save'?(hadSaved?'Retirada de Leer después.':'Guardada para leer después.'):action==='read'?'Marcada como leída.':'Guardada como pendiente.',()=>{read=read.filter(v=>v!==id);if(hadRead)read.push(id);if(hadSaved&&!isSaved(article))saved.unshift({...article,sourceName:sourceFor(article).name});if(!hadSaved)saved=saved.filter(a=>a.id!==id);writeStorage('extra-extra:read',read);writeStorage('extra-extra:saved',saved);render();if(currentArticle)updateReaderSave();});
 }
 
 const storyStore=createStoryStore({sourceName:article=>sourceFor(article).name,warn:toast});
@@ -474,7 +518,7 @@ function updateStoryUI(){
 }
 async function recordNews(){
   for(const article of data.articles){const metadata=storyStore.observation(article)?.publicMetadata;if(!article.publicMetadata&&metadata&&Date.now()-Date.parse(metadata.checkedAt)<86400000)article.publicMetadata=metadata;}
-  await storyStore.observe(data.articles.filter(a=>prefs.sources?.includes(a.source)));updateStoryUI();
+  await storyStore.observe(data.articles.filter(a=>prefs.sources?.includes(a.source)));updateStoryUI();await dailyTools.check();
 }
 const coverageView=createCoverageView({
   store:storyStore,source:sourceFor,date:dateLabel,notify:toast,changed:render,ranking:rankingContext,
@@ -484,8 +528,16 @@ const coverageView=createCoverageView({
 });
 $('#reader-context').onclick=()=>currentCluster&&coverageView.open(currentCluster);
 $('#reader-follow').onclick=()=>{if(!currentCluster)return;const watch=storyStore.find(currentCluster);if(watch){storyStore.remove(watch.id);toast('Se ha dejado de seguir esta historia.');}else{try{storyStore.follow(currentCluster);toast('Historia seguida.');}catch(error){toast(error.message);}}render();};
-initInterface({openPanel,refresh:()=>loadNews(true),loadMore:loadMoreStories});
-hydrateIcons();applyAppearance();renderCategories();
+const translationEngine=createTranslationEngine({settings:()=>comfort,readUsage:()=>readStorage('extra-extra:translation-usage',{}),saveUsage:value=>writeStorage('extra-extra:translation-usage',value),decode:value=>{const t=document.createElement('textarea');t.innerHTML=value;return t.value;},warn:toast});
+const readerTools=createReaderTools({settings:()=>comfort,engine:translationEngine,persist:persistComfort,source:sourceFor,isOpen:()=>$('#reader').open,canNext:()=>queueIndex<readerQueue.length-1,next:()=>moveReader(1)});
+const libraryView=createLibraryView({library:()=>library,saved:()=>saved,notify:toast,persist:()=>{persistLibrary();if(libraryFilter.collection!=='@none'&&!library.collections.some(c=>c.id===libraryFilter.collection))libraryFilter.collection='';render();},ensureSaved,changed:render,show:(collection,tag)=>{savedOnly=true;resetFilters();Object.assign(libraryFilter,{collection,tag});render();$('#panel').close();window.scrollTo({top:0});}});
+const dailyTools=createDailyTools({settings:()=>comfort,read:()=>readStorage('extra-extra:daily',{}),persist:state=>writeStorage('extra-extra:daily',state),save:persistComfort,articles:()=>data.articles.filter(a=>prefs.sources?.includes(a.source)&&!isMuted(a,mutes)),sources:()=>sources.filter(s=>prefs.sources?.includes(s.id)),source:sourceFor,category:a=>categoryOf(a,sourceFor(a)),followed:a=>!!storyStore.find({articles:[a]}),notify:toast,date:dateLabel,download,open:(row,items)=>{const queue=items.map(a=>({articles:[data.articles.find(article=>article.id===a.id)||{...a,summary:a.excerpt||'',content:''}]})),cluster=queue.find(c=>c.articles[0].id===row.id);$('#panel').close();openReader(row.id,cluster,{queue});}});
+translationEngine.ready.then(()=>{if(sources.length)render();});
+globalThis.speechSynthesis?.addEventListener('voiceschanged',populateVoices);
+navigator.serviceWorker?.addEventListener('message',event=>{if(event.data?.type==='extra-extra-alerts')openPanel('daily');});
+if(new URL(location.href).searchParams.get('view')==='alerts')storyReady.then(()=>openPanel('daily'));
+initInterface({openPanel,gestureSettings:()=>comfort,cardAction:runCardAction,refresh:()=>loadNews(true),loadMore:loadMoreStories});
+hydrateIcons();applyAppearance();renderCategories();persistComfort();
 $('#edition-date').textContent=new Intl.DateTimeFormat('es',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
 document.addEventListener('click',event=>{
   const panel=event.target.closest('[data-panel]');if(panel){openPanel(panel.dataset.panel);return;}
@@ -510,5 +562,5 @@ $('#refresh').onclick=()=>loadNews(true);
 document.addEventListener('keydown',event=>{if(event.key==='/'&&!['INPUT','SELECT','TEXTAREA'].includes(document.activeElement.tagName)&&!$('dialog[open]')){event.preventDefault();openPanel('search');}});
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){applyAppearance();if(!liveBusy&&Date.now()-lastLiveCheck>=AUTO_REFRESH)loadNews();else if(!liveBusy)scheduleAutomatic();}});
 
-setInterval(()=>{applyAppearance();const today=calendarKey(new Date()),active=activeMutes(mutes);if(active.length!==mutes.length||today!==lastCalendarDay){mutes=active;lastCalendarDay=today;writeStorage('extra-extra:mutes',mutes);render();}},60000);
+setInterval(()=>{dailyTools.check();applyAppearance();const today=calendarKey(new Date()),active=activeMutes(mutes);if(active.length!==mutes.length||today!==lastCalendarDay){mutes=active;lastCalendarDay=today;writeStorage('extra-extra:mutes',mutes);render();}},60000);
 loadNews();

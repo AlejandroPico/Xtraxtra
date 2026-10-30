@@ -146,7 +146,7 @@ def parse_feed(raw, source, now=None):
             'sourceLabel': clean(''.join(origin.itertext()), 160) if origin is not None else '',
             'editorialType': clean(child_text(item, ['type']), 80),
             'summary': summary or body[:550], 'content': body if len(body) > len(summary) + 120 else '',
-            'image': image, 'categories': categories[:8],
+            'image': image, 'imageCredit': ' · '.join(clean(n.text, 180) for n in item.iter() if local(n.tag) == 'credit' and 'search.yahoo.com/mrss' in n.tag)[:240], 'imageCaption': next((clean(n.text, 360) for n in item.iter() if local(n.tag) == 'description' and 'search.yahoo.com/mrss' in n.tag), ''), 'categories': categories[:8],
         })
         if len(articles) >= 45:
             break

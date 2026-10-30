@@ -7,10 +7,10 @@ Un lector RSS gratuito y sin cuentas, inspirado en los antiguos lectores de feed
 - Mosaico, tarjetas o lista, adaptados a móvil y escritorio.
 - Selección de medios, secciones, búsqueda, idioma, antigüedad y noticias sin leer.
 - Temas detectados por reglas: elecciones, vivienda, accidentes, inundaciones, etc. La búsqueda permite seguir cualquier otro asunto.
-- Agrupación por similitud de titulares, idioma y cercanía temporal, con todas las coberturas accesibles. Puede desactivarse; no es un sistema semántico ni reúne versiones en idiomas distintos de forma fiable.
+- Agrupación aproximada por titulares, entidades, sucesos y fechas, también entre idiomas. Comparación, cronología, seguimiento y referencias. Puede desactivarse.
 - Relevancia por actualidad y número de medios distintos; orden cronológico o por cobertura. No mide credibilidad ni importancia objetiva.
 - Lector del texto distribuido por el medio en su RSS. No descarga páginas de artículos ni elimina muros de pago. Algunos RSS entregan solo titulares o extractos.
-- Traducción local al español en navegadores con `Translator`. Alternativa mediante enlace a Google Translate, que recibe la URL al abrirlo.
+- Traducción de portada y lectura bilingüe en varios idiomas: en el dispositivo cuando el navegador lo permite, o mediante MyMemory con cuota gratuita. Alternativa web con Google Translate. Ningún texto se traduce externamente antes de pedirlo.
 - Temas mañana, tarde, noche y automático; seis tipografías, tamaño de lectura e imágenes opcionales.
 - Guardadas con copia del texto, historial local, exportación/importación JSON y OPML para las suscripciones del catálogo.
 - Estado de cada fuente, fecha de edición y aviso de retraso. Si falla una fuente, conserva noticias de la edición anterior hasta siete días.
@@ -76,7 +76,7 @@ Las pruebas cubren reconocimiento de gestos (sin confundir desplazamientos horiz
 
 ## Tanda 1 (1.2)
 
-El plan de las 45 mejoras seleccionadas está en [docs/TANDAS.md](docs/TANDAS.md). Las tandas 1, 2 y 3 están implementadas; la tanda 4 queda pendiente.
+El plan de las 45 mejoras seleccionadas está en [docs/TANDAS.md](docs/TANDAS.md). Las cuatro tandas están implementadas; sus accesos y límites se detallan en ese documento.
 
 La portada utiliza una sola franja con dos áreas horizontales táctiles: secciones generales y radar. El total de noticias aparece junto a la hora de actualización. La carga añade noticias automáticamente al acercarse al final, sin botón ni pie de paginación. Las noticias se agrupan por día de calendario local, con una separación completa al pasar a ayer y fechas anteriores. El orden por relevancia o cobertura se aplica dentro de cada día. Se recorre la edición disponible, no un archivo histórico ilimitado.
 
@@ -103,3 +103,14 @@ Comparar abre dos textos RSS en paralelo, con selección de medios. Qué añade 
 Seguir historia conserva coberturas y novedades en IndexedDB. Historias permite renombrar, consultar, marcar al día o dejar de seguir. Hay límites de 30 historias, 40 coberturas por historia y 12 cambios por artículo; los textos conservados se limitan a 6.000 caracteres. La copia JSON incluye las historias y admite archivos de hasta 64 MB. No es un archivo completo ni un servicio de notificaciones.
 
 Acceso y fuentes reúne referencias enlazadas por los RSS y permite consultar metadatos públicos de las páginas, en tandas de ocho. La consulta comparte esas URL con el servicio de apoyo. Se leen declaraciones JSON-LD como [isAccessibleForFree](https://schema.org/isAccessibleForFree), [citation](https://schema.org/citation) y tipos editoriales, sin extraer `articleBody`, ejecutar scripts ni evadir accesos restringidos. Un dato ausente se muestra como desconocido. Las declaraciones de acceso no garantizan disponibilidad en todos los países ni sustituyen los requisitos del medio. La clasificación editorial usa etiquetas explícitas; no evalúa la veracidad.
+
+
+## Tanda 4 (1.5)
+
+Colecciones y etiquetas personales se gestionan desde Filtros y se asignan en el lector. La navegación Anterior/Siguiente conserva la edición filtrada que se estaba leyendo. Las fotografías abren un visor ampliable con créditos y pies del RSS cuando existen.
+
+Lectura → Idiomas y audio configura la traducción, el idioma, la lectura bilingüe, las voces y la velocidad. Traducir siguientes 4 tarjetas solo procesa titulares y extractos cargados al pulsarlo; los resultados se guardan localmente. Translator necesita un navegador compatible y puede descargar modelos. MyMemory recibe el texto solicitado, con su [cuota anónima](https://mymemory.translated.net/doc/usagelimits.php); el lector limita los textos largos a un fragmento identificado. Se conserva el original. Las voces en línea pueden usar servicios de su proveedor. Los gestos de fichas también se configuran en Lectura, inicialmente desactivados.
+
+Al día genera un resumen extractivo con fuentes (hasta ocho historias), sin IA, con descarga y siete ediciones locales. La preparación diaria es opcional y funciona al abrir o mantener abierta la web tras una hora local elegida. Los avisos selectivos están desactivados por defecto. Se activan por separado dentro de la aplicación y en el sistema; solo el botón correspondiente solicita permiso. Admiten búsqueda, medios, historias seguidas, descanso y agrupación. Requieren una página abierta y que el navegador permita actualizarla; no hay envíos push con la aplicación cerrada. En iPhone, los avisos del sistema requieren instalación en pantalla de inicio.
+
+La copia JSON incluye la organización, los ajustes y los resúmenes. Importar una copia desactiva los avisos y no concede permisos. Más detalles y fuentes técnicas en [TANDAS.md](docs/TANDAS.md).

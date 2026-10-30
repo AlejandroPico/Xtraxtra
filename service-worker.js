@@ -1,6 +1,6 @@
-const CACHE = 'extra-extra-v7';
+const CACHE = 'extra-extra-v8';
 const ROOT = new URL('./', self.location.href);
-const FILES = ['./','index.html','styles.css','app.js','ui.js','lib/news.js','lib/gestures.js','lib/search.js','lib/edition.js','lib/preferences.js','lib/feeds.js','lib/story-analysis.js','lib/story-store.js','lib/coverage-view.js','lib/geography.js','lib/world-territories.js','lib/media-panel.js','favicon.png','favicon-32.png','favicon.ico','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/maskable-512.png','icons/apple-touch-icon.png','data/sources.json','data/news.json'];
+const FILES = ['./','index.html','styles.css','app.js','ui.js','lib/news.js','lib/gestures.js','lib/search.js','lib/edition.js','lib/preferences.js','lib/feeds.js','lib/reading-tools.js','lib/translation.js','lib/reader-tools.js','lib/library-view.js','lib/daily-tools.js','lib/story-analysis.js','lib/story-store.js','lib/coverage-view.js','lib/geography.js','lib/world-territories.js','lib/media-panel.js','favicon.png','favicon-32.png','favicon.ico','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/maskable-512.png','icons/apple-touch-icon.png','data/sources.json','data/news.json'];
 
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(path=>new Request(new URL(path,ROOT).href,{cache:'no-cache'})))).then(()=>self.skipWaiting()));
@@ -27,5 +27,15 @@ self.addEventListener('fetch',event=>{
       const saved=await cache.match(canonical);
       return saved || new Response('Sin conexión. Abre Extra Extra con conexión para guardar una edición.',{status:503,headers:{'Content-Type':'text/plain;charset=utf-8'}});
     }
+  })());
+});
+
+self.addEventListener('notificationclick',event=>{
+  event.notification.close();
+  event.waitUntil((async()=>{
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    const client=windows.find(c=>{const url=new URL(c.url);return url.origin===ROOT.origin&&url.pathname.startsWith(ROOT.pathname);});
+    if(client){await client.focus();client.postMessage({type:'extra-extra-alerts'});}
+    else await self.clients.openWindow(new URL('./?view=alerts',ROOT).href);
   })());
 });

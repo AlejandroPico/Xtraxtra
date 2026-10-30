@@ -1,4 +1,5 @@
 import {pullDistance, shouldRefresh, isClosingSwipe} from './lib/gestures.js';
+import {swipeAction} from './lib/reading-tools.js';
 
 const $ = selector => document.querySelector(selector);
 export function closeMenu() { if ($('#mobile-menu')?.open) $('#mobile-menu').close(); }
@@ -19,7 +20,7 @@ export function layoutNews() {
   news.querySelectorAll('.story').forEach(story => {measure(story);masonryObserver.observe(story);});
 }
 
-export function initInterface({openPanel, refresh, loadMore}) {
+export function initInterface({openPanel, refresh, loadMore, gestureSettings=()=>({swipeLeft:"none",swipeRight:"none"}),cardAction=()=>{}}) {
   const mobile = matchMedia('(max-width: 760px)'), menu = $('#mobile-menu'), trigger = $('#menu-toggle');
   function syncTools() {
     closeMenu();
@@ -62,6 +63,25 @@ export function initInterface({openPanel, refresh, loadMore}) {
     const ready=pulling && shouldRefresh(distance);resetPull();if(ready)refresh();
   },{passive:true});
   document.addEventListener('touchcancel',resetPull,{passive:true});
+
+  let cardSwipe=null,ignoreClick=null;
+  const clearCard=()=>{if(cardSwipe){cardSwipe.card.style.removeProperty('--swipe-x');delete cardSwipe.card.dataset.swiping;}cardSwipe=null;};
+  document.addEventListener('touchstart',event=>{
+    if(document.querySelector('dialog[open]')||event.touches.length!==1||event.target.closest('.story-save,.coverage,a,input,select'))return;
+    const settings=gestureSettings(),card=event.target.closest('.story');if(!card||settings.swipeLeft==='none'&&settings.swipeRight==='none')return;
+    cardSwipe={card,x:event.touches[0].clientX,y:event.touches[0].clientY,horizontal:false};
+  },{passive:true});
+  document.addEventListener('touchmove',event=>{
+    if(!cardSwipe||event.touches.length!==1)return;const dx=event.touches[0].clientX-cardSwipe.x,dy=Math.abs(event.touches[0].clientY-cardSwipe.y);
+    if(!cardSwipe.horizontal&&dy>16&&dy>Math.abs(dx)){clearCard();return;}
+    if(Math.abs(dx)>20&&Math.abs(dx)>dy*1.7){const action=dx<0?gestureSettings().swipeLeft:gestureSettings().swipeRight;if(action==='none')return;cardSwipe.horizontal=true;if(event.cancelable)event.preventDefault();cardSwipe.card.style.setProperty('--swipe-x',Math.max(-70,Math.min(70,dx*.5))+'px');cardSwipe.card.dataset.swiping='true';}
+  },{passive:false});
+  document.addEventListener('touchend',event=>{
+    if(!cardSwipe)return;const previous=cardSwipe,end=event.changedTouches[0],action=end&&previous.horizontal?swipeAction(previous,{x:end.clientX,y:end.clientY},gestureSettings()):'none';clearCard();
+    if(action!=='none'){if(event.cancelable)event.preventDefault();ignoreClick={id:previous.card.dataset.id,until:Date.now()+700};cardAction(previous.card.dataset.id,action);}
+  },{passive:false});
+  document.addEventListener('touchcancel',clearCard,{passive:true});
+  document.addEventListener('click',event=>{if(ignoreClick&&Date.now()<ignoreClick.until&&event.target.closest('.story')?.dataset.id===ignoreClick.id){event.preventDefault();event.stopImmediatePropagation();ignoreClick=null;}},true);
 
   let installPrompt;
   const installed=()=>matchMedia('(display-mode: standalone)').matches || navigator.standalone===true;

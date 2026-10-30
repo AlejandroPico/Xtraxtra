@@ -1,6 +1,6 @@
 # Mejoras seleccionadas: cuatro tandas
 
-Selección del usuario del 29 de octubre de 2026. Se conservan los números de `IDEAS.md`. El 39 se pidió dos veces y cuenta una sola: son **45 mejoras**. Las tandas 1, 2 y 3 están implementadas. La tanda 4 se realizará cuando el usuario la pida.
+Selección del usuario del 29 de octubre de 2026. Se conservan los números de `IDEAS.md`. El 39 se pidió dos veces y cuenta una sola: son **45 mejoras**. Las cuatro tandas están implementadas. Los límites de traducción, audio y avisos se detallan al final.
 
 ## Ajustes inmediatos de la portada — implementados
 
@@ -75,9 +75,9 @@ Los detalles son fragmentos literales diferentes de los RSS disponibles, no hech
 
 Las fechas de publicación y actualización se conservan por separado. La cronología distingue fechas del RSS, declaraciones de la web y cambios observados localmente. Una detección local no se presenta como hora de edición del periódico.
 
-El historial vive en IndexedDB de este navegador: hasta 30 historias, 40 coberturas conservadas por historia y 12 cambios observados por artículo. Las copias JSON incluyen las historias. El seguimiento recoge novedades al abrir o actualizar la aplicación; no envía avisos ni reconstruye periodos durante los que no se consultaron fuentes. Los textos guardados de historias pueden ser extractos de hasta 6.000 caracteres. La tanda 4 continúa pendiente.
+El historial vive en IndexedDB de este navegador: hasta 30 historias, 40 coberturas conservadas por historia y 12 cambios observados por artículo. Las copias JSON incluyen las historias. El seguimiento recoge novedades al abrir o actualizar la aplicación; no envía avisos ni reconstruye periodos durante los que no se consultaron fuentes. Los textos guardados de historias pueden ser extractos de hasta 6.000 caracteres. Los avisos opcionales se incorporan en la tanda 4.
 
-## Tanda 4 — organización, idiomas, audio y avisos — pendiente
+## Tanda 4 — organización, idiomas, audio y avisos — implementada
 
 - **33.** Colecciones de Leer después.
 - **34.** Etiquetas personales.
@@ -91,4 +91,21 @@ El historial vive en IndexedDB de este navegador: hasta 30 historias, 40 cobertu
 - **59.** Alertas selectivas con permiso explícito.
 - **60.** Horarios de descanso y agrupación de avisos.
 
-Valorar las necesidades de traducción, IA y tareas en segundo plano para mantener la gratuidad. La selección de una función de avisos no autoriza enviar notificaciones ni solicitar permisos antes de que el usuario active esa función.
+Accesos:
+
+- **33–34:** Filtros → Organizar Leer después crea y renombra hasta 30 colecciones. En el lector, Colecciones y etiquetas permite asignar varias colecciones y hasta doce etiquetas. Los selectores de Filtros muestran solo guardadas de la colección/etiqueta elegida; quitar una colección conserva las noticias.
+- **38:** Anterior y Siguiente en el lector recorren una instantánea de la edición filtrada, también desde un resumen. No reordena la cola cuando llegan noticias nuevas.
+- **40:** tocar la fotografía del lector abre Ampliar/Ajustar, con desplazamiento de la imagen ampliada. Muestra pie y créditos del RSS cuando existen; nunca infiere la autoría del nombre del periódico ni de los autores del texto.
+- **42–43:** Lectura → Idiomas y audio elige idioma y proveedor. Traducir siguientes 4 tarjetas procesa titulares y extractos de cuatro tarjetas cargadas por pulsación. Mostrar traducciones guardadas activa o retira esas traducciones en portada. El lector traduce al idioma elegido y permite original, traducción o pares bilingües; en móvil los pares se apilan.
+- **45:** Escuchar/Pausar/Continuar/Detener en el lector. Lectura configura voz, velocidad y avance opcional a la siguiente noticia. Se usa síntesis del navegador y se cancela al cambiar o cerrar la noticia. Las voces en línea se identifican; pueden enviar texto a su proveedor. No garantiza reproducción con pantalla bloqueada.
+- **47:** Al día prepara hasta ocho historias del día con extractos literales, diversidad de medios/secciones y enlaces a coberturas relacionadas. No interviene IA. Hay generación manual, descarga de texto y preparación diaria opcional al abrir o mantener abierta la web tras la hora elegida. Conserva siete días en este navegador.
+- **52:** Lectura → Gestos configura izquierda y derecha sobre las fichas: sin acción, guardar/retirar, leída, pendiente, siguiente o coberturas. El recorrido debe ser horizontal y suficiente; el desplazamiento vertical y los botones se conservan. Guardar y cambiar la lectura ofrecen Deshacer.
+- **59–60:** Al día → Avisos selectivos permite elegir una búsqueda, medios o historias seguidas. Los criterios se combinan con O; solo se consultan los medios seleccionados y se respetan silencios. Por defecto todo está desactivado. Activar avisos dentro de Extra Extra usa su bandeja; solo el botón Activar avisos del sistema solicita permiso al navegador. El descanso usa horas locales y admite medianoche; agrupa coincidencias en intervalos de 5–120 minutos y evita repetir URL. Las coincidencias pendientes caducan a las 24 horas o al dejar de cumplir los criterios.
+
+La traducción local depende de la API Translator y de los idiomas/modelos del navegador. MyMemory es una alternativa externa voluntaria, sin cuenta ni claves, que recibe únicamente los segmentos solicitados. La aplicación consulta el endpoint de lectura, nunca contribuye textos a su memoria. Su cuota anónima publicada es de 5.000 caracteres diarios; la aplicación limita conservadoramente los intentos a 4.500 por navegador y día UTC, sin poder conocer el consumo de otras webs o dispositivos de la misma IP. Cada petición respeta 500 bytes UTF-8. El lector limita la traducción externa a un fragmento de hasta 3.800 caracteres más titular y lo indica; el original completo disponible se conserva. Las traducciones se guardan en IndexedDB (hasta 400 segmentos, reutilizables durante 30 días), sin consultas automáticas al mostrar tarjetas.
+
+Los avisos funcionan mientras una página de Extra Extra está abierta y el navegador permite ejecutarla, incluso en segundo plano con los avisos activados. La actualización sigue siendo de diez minutos, sujeta a la disponibilidad del RSS y a la suspensión del navegador. No hay servidor de envío push, ni alertas con la aplicación cerrada, ni promesa de puntualidad exacta. En iPhone, los avisos del sistema requieren instalar la web en la pantalla de inicio. Los clics de avisos abren Al día, y no abren enlaces ajenos automáticamente.
+
+La copia JSON incluye colecciones, etiquetas, ajustes y resúmenes. Al importarla se desactivan ambos tipos de avisos; no se trasladan permisos del sistema. Las copias anteriores siguen siendo compatibles. No se ha añadido ningún servicio de pago ni se ha cambiado el alojamiento de GitHub Pages.
+
+Referencias: [Translator del navegador](https://developer.chrome.com/docs/ai/translator-api), [API de MyMemory](https://mymemory.translated.net/doc/spec.php), [cuota de MyMemory](https://mymemory.translated.net/doc/usagelimits.php), [síntesis de voz](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis), [avisos del service worker](https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerRegistration/showNotification).

@@ -43,6 +43,13 @@ class FeedTests(unittest.TestCase):
         for xml in [b'<html><body>Not RSS</body></html>', b'<!DOCTYPE rss [<!ENTITY x "bad">]><rss/>']:
             with self.assertRaises(ValueError): collect.parse_feed(xml, SOURCE, NOW)
         self.assertEqual(collect.safe_url('javascript:alert(1)'), '')
+    def test_photo_credit_is_separate_from_article_text(self):
+        xml = b'<rss xmlns:media="http://search.yahoo.com/mrss/"><channel><item><title>Noticia</title><link>https://example.org/photo</link><description>Extracto real</description><media:content url="https://example.org/photo.jpg"><media:credit>AFP</media:credit><media:description>Pie de foto</media:description></media:content></item></channel></rss>'
+        article = collect.parse_feed(xml, SOURCE, NOW)[0]
+        self.assertEqual(article['imageCredit'], 'AFP')
+        self.assertEqual(article['imageCaption'], 'Pie de foto')
+        self.assertEqual(article['summary'], 'Extracto real')
+        self.assertEqual(article['content'], '')
     def test_duplicates_and_future_date(self):
         xml = b'<rss><channel><item><title>A</title><link>https://example.org/a</link><pubDate>Thu, 29 Oct 2026 15:00:00 GMT</pubDate></item><item><title>B</title><link>https://example.org/a</link></item></channel></rss>'
         result = collect.parse_feed(xml, SOURCE, NOW)
