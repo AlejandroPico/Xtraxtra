@@ -1,0 +1,15 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><title>Pruebas de historias</title><h1>Pruebas de seguimiento local</h1><button id="run">Ejecutar pruebas</button><pre id="result" role="status"></pre><script type="module">
+import {createStoryStore,watchUnread} from '../lib/story-store.js';
+const assert=(value,message)=>{if(!value)throw new Error(message);};
+document.querySelector('#run').onclick=async()=>{
+ const result=document.querySelector('#result'),lines=[],prefix='fixture-'+crypto.randomUUID();let store,id;
+ try{
+  const now=new Date().toISOString(),a={id:prefix+'-a',title:'Sánchez convoca elecciones en España',url:'https://example.org/'+prefix+'-a',source:prefix,language:'es',published:now,summary:'Anuncio de elecciones',content:'Un párrafo con texto y espacios.\n'.repeat(400),categories:[]};
+  store=createStoryStore();await store.init();await store.observe([a]);const watch=store.follow({id:a.id,articles:[a]});id=watch.id;assert(watchUnread(watch)===0,'Seguimiento comienza al día');lines.push('Historia creada y conservada con extracto limitado.');
+  const b={...a,id:prefix+'-b',url:'https://example.org/'+prefix+'-b',title:'Sánchez calls elections in Spain',language:'en',content:'New coverage'};await store.observe([a,b]);assert(watchUnread(store.watches.find(w=>w.id===id))===1,'Nueva cobertura reconocida entre idiomas');lines.push('Novedad en otro idioma reconocida.');
+  const restored=createStoryStore();await restored.init();const restoredWatch=restored.watches.find(w=>w.id===id);assert(restoredWatch&&restoredWatch.articles.length===2,'Persistencia al reabrir');await restored.seen(id,a);assert(watchUnread(restored.watches.find(w=>w.id===id))===1,'Leer texto largo no genera un falso pendiente');await restored.seen(id);assert(watchUnread(restored.watches.find(w=>w.id===id))===0,'Marcar al día');lines.push('Persistencia, pendientes y lectura de textos largos correctos.');
+  const exported=JSON.parse(JSON.stringify(restored.watches.filter(w=>w.id===id)));await restored.remove(id);await restored.importWatches(exported);assert(restored.watches.some(w=>w.id===id),'Restauración desde copia');await restored.remove(id);lines.push('Copia y restauración correctas; historia de prueba retirada.');
+  result.textContent=lines.join('\n')+'\n4 pruebas completadas correctamente.';
+ }catch(error){result.textContent=lines.join('\n')+'\nERROR: '+error.message;if(store&&id)await store.remove(id);}
+};
+</script></html>

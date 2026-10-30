@@ -22,6 +22,17 @@ class FeedTests(unittest.TestCase):
         xml = b'<rss><channel><item><title>Safe</title><link>https://example.org/safe</link><description><![CDATA[<!DOCTYPE html><p>Inert description</p>]]></description></item></channel></rss>'
         article = collect.parse_feed(xml, SOURCE, NOW)[0]
         self.assertIn('Inert description', article['summary'])
+    def test_publication_update_authors_and_original_references(self):
+        xml = b'<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Updated article</title><link href="/updated"/><published>2026-10-29T08:00:00Z</published><updated>2026-10-29T10:00:00Z</updated><author><name>Reuters</name></author><summary>&lt;a href="https://university.example.org/study"&gt;Original study&lt;/a&gt;</summary></entry></feed>'
+        article = collect.parse_feed(xml, SOURCE, NOW)[0]
+        self.assertEqual(article['published'], '2026-10-29T08:00:00+00:00')
+        self.assertEqual(article['updated'], '2026-10-29T10:00:00+00:00')
+        self.assertEqual(article['authors'], ['Reuters'])
+        self.assertEqual(article['references'][0]['url'], 'https://university.example.org/study')
+    def test_updated_only_is_not_reported_as_publication(self):
+        article = collect.parse_feed(b'<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Only updated</title><link href="/updated"/><updated>2026-10-29T10:00:00Z</updated></entry></feed>', SOURCE, NOW)[0]
+        self.assertIsNone(article['published'])
+        self.assertEqual(article['updated'], '2026-10-29T10:00:00+00:00')
     def test_atom_without_date(self):
         a = collect.parse_feed(b'<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>Atom</title><link href="/atom"/><summary>Text</summary></entry></feed>', SOURCE, NOW)[0]
         self.assertIsNone(a['published'])

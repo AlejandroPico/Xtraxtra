@@ -1,3 +1,6 @@
+import {articleTime,contentKind,variantGroups,rankingReasons} from './lib/story-analysis.js';
+import {createStoryStore,watchUnread} from './lib/story-store.js';
+import {createCoverageView,renderStoriesPanel} from './lib/coverage-view.js';
 import {languages,sourceSettings,mergeSources,keepNewerFeed,parseFeed,feedMetadata,readSnapshots,saveSnapshot,removeSnapshot} from './lib/feeds.js';
 import {territories,matchesTerritory} from './lib/geography.js';
 import {createMediaPanel} from './lib/media-panel.js';
@@ -9,6 +12,7 @@ import {readingPreferences,sanitizeFrontpages,readingEstimate} from './lib/prefe
 
 const $ = selector => document.querySelector(selector);
 const icons = {
+  follow:'<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3"/>',compare:'<rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/>',
   rss:'<path d="M4 11a9 9 0 0 1 9 9M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/>',
   filter:'<path d="M3 4h18l-7 8v7l-4 2v-9z"/>', type:'<path d="M4 5h13M10.5 5v15M6 20h9M16 12h5M18.5 12v8"/>',
   menu:'<path d="M4 6h16M4 12h16M4 18h16"/>', clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
@@ -43,7 +47,7 @@ let sources = [], data = { articles:[], status:{} }, visibleClusters = [], allCl
 let read = readStorage('extra-extra:read', []); if (!Array.isArray(read)) read = [];
 let saved = readStorage('extra-extra:saved', []); if (!Array.isArray(saved)) saved = [];
 saved = saved.filter(item => item && typeof item.id === 'string' && typeof item.title === 'string' && safeURL(item.url));
-const filters = { query:'', category:'Actualidad', language:'', territory:'', hours:0, unread:false, topic:null, topicName:'' };
+const filters = { query:'', category:'Actualidad', language:'', territory:'', kind:'', hours:0, unread:false, topic:null, topicName:'' };
 let savedOnly = false, panelName = '', currentArticle = null, currentCluster = null, toastTimer, searchTimer, sortOrder = 'relevance';
 let frontpages=sanitizeFrontpages(readStorage('extra-extra:frontpages',[]));
 let mutes=activeMutes(Array.isArray(readStorage('extra-extra:mutes',[]))?readStorage('extra-extra:mutes',[]):[]);
@@ -100,11 +104,11 @@ function renderCategories() {
 }
 function resetFilters() {
   activeFrontpage='';
-  Object.assign(filters, {query:'', category:'Actualidad', language:'', territory:'', hours:0, unread:false, topic:null, topicName:''});
+  Object.assign(filters, {query:'', category:'Actualidad', language:'', territory:'', kind:'', hours:0, unread:false, topic:null, topicName:''});
   if ($('#search')) $('#search').value = ''; limit = 36; renderCategories(); render();
 }
 function activeFilters() {
-  const labels = [savedOnly&&'Leer después',filters.query && `«${filters.query}»`,filters.territory&&territories.find(t=>t.id===filters.territory)?.name,prefs.nearby&&`Cerca de ${territories.find(t=>t.id===prefs.nearby)?.name}`, filters.language && `Idioma: ${filters.language.toUpperCase()}`, filters.hours && `Últimas ${filters.hours} h`, filters.unread && 'Sin leer', filters.topicName, prefs.sources?.length !== sources.length && `${prefs.sources?.length || 0} medios`,activeMutes(mutes).length&&`${activeMutes(mutes).length} silencios`].filter(Boolean);
+  const labels = [savedOnly&&'Leer después',filters.kind&&{news:'Información',opinion:'Opinión',sponsored:'Patrocinado',unknown:'Sin etiqueta editorial'}[filters.kind],filters.query && `«${filters.query}»`,filters.territory&&territories.find(t=>t.id===filters.territory)?.name,prefs.nearby&&`Cerca de ${territories.find(t=>t.id===prefs.nearby)?.name}`, filters.language && `Idioma: ${filters.language.toUpperCase()}`, filters.hours && `Últimas ${filters.hours} h`, filters.unread && 'Sin leer', filters.topicName, prefs.sources?.length !== sources.length && `${prefs.sources?.length || 0} medios`,activeMutes(mutes).length&&`${activeMutes(mutes).length} silencios`].filter(Boolean);
   const container = $('#active-filters');
   container.hidden = !labels.length;
   container.innerHTML = labels.map(label => `<span class="chip">${esc(label)}</span>`).join('') + (labels.length ? '<button id="clear-filters">Limpiar filtros</button>' : '');
@@ -126,14 +130,18 @@ function storyHTML(cluster, i) {
   const summary = article.summary.replace(/\s+/g,' ');
   const image = safeURL(article.image);
   const hasImage = image && prefs.images;
-  const time = relativeTime(article.published).replace('Hace ', '');
+  const modified=article.updated&&Date.parse(article.updated)>(Date.parse(article.published)||0)+60000;
+  const displayDate=modified?article.updated:article.published||article.updated;
+  const time=(modified?'Act. ':'')+relativeTime(displayDate).replace('Hace ', '');
+  const editorial=contentKind(article);
+  const dateTitle=`${article.published?'Publicada '+dateLabel(article.published):'Publicación sin fecha'}${article.updated?' · Actualizada '+dateLabel(article.updated):''}`;
   return `<article class="story ${read.includes(article.id) ? 'is-read' : ''}" data-id="${esc(article.id)}">
     <div class="story-media ${hasImage ? '' : 'no-image'}">
       ${hasImage ? `<button class="story-photo" data-open="${esc(article.id)}" aria-label="Leer: ${esc(article.title)}" tabindex="-1"><img class="story-image" src="${esc(image)}" alt="" loading="${i < 5 ? 'eager' : 'lazy'}" decoding="async" referrerpolicy="no-referrer"></button>` : ''}
       <button class="story-save" data-save="${esc(article.id)}" aria-label="${isSaved(article) ? 'Retirar de Leer después' : 'Guardar para leer después'}: ${esc(article.title)}" aria-pressed="${isSaved(article)}">${icon('bookmark')}</button>
-      ${count > 1 ? `<button class="coverage" data-open="${esc(article.id)}" aria-label="Comparar ${count} medios: ${esc(article.title)}">${count} medios · Comparar ↗</button>` : ''}
+      ${count > 1 ? `<button class="coverage" data-compare="${esc(article.id)}" aria-label="Comparar ${count} medios: ${esc(article.title)}">${count} medios · Comparar ↗</button>` : ''}
     </div>
-    <div class="story-body"><div class="story-meta"><span class="source-mark" aria-hidden="true">${esc(source.name.replace(/^(El |La |The )/,'').slice(0,2))}</span><span class="source-name">${esc(source.name)}</span><span aria-hidden="true">·</span><time datetime="${esc(article.published || '')}" title="${esc(dateLabel(article.published))}">${time}</time>${article.language !== 'es' ? `<span class="language-tag">${esc(article.language.toUpperCase())}</span>` : ''}<span class="story-section">${esc(category)}</span></div>
+    <div class="story-body"><div class="story-meta"><span class="source-mark" aria-hidden="true">${esc(source.name.replace(/^(El |La |The )/,'').slice(0,2))}</span><span class="source-name">${esc(source.name)}</span><span aria-hidden="true">·</span><time datetime="${esc(displayDate || '')}" title="${esc(dateTitle)}">${time}</time>${article.language !== 'es' ? `<span class="language-tag">${esc(article.language.toUpperCase())}</span>` : ''}<span class="story-section">${esc(category)}</span>${editorial.type!=='unknown'?`<span class="editorial-badge" title="${esc(editorial.basis)}">${esc(editorial.label)}</span>`:''}</div>
     <h3><button data-open="${esc(article.id)}" lang="${esc(article.language)}">${esc(article.title)}</button></h3>
     ${summary ? `<p class="story-summary" lang="${esc(article.language)}">${esc(summary)}</p>` : ''}
     </div></article>`;
@@ -194,8 +202,9 @@ function render() {
   else if(stale)$('#notice').textContent=liveBusy?'Comprobando los RSS para actualizar la edición…':`La última recogida correcta es del ${dateLabel(data.generated)}. ${serviceProblem||'Pulsa Actualizar portada para reintentar.'}`;
   else if(serviceProblem)$('#notice').textContent=serviceProblem;
   $('#update-status').title=`Edición del ${dateLabel(data.generated)}. ${sources.length-available} fuentes no disponibles; consulta Medios.`;
-  activeFilters();renderTopics();
+  activeFilters();renderTopics();updateStoryUI();
   if(panelName==='sources'&&$('#panel').open)mediaPanel.draw();
+  if(panelName==='stories'&&$('#panel').open&&!document.activeElement.matches('[data-story-name]'))renderStoriesPanel({store:storyStore,open:coverageView.open,changed:render});
   if(limit<allClusters.length && $('#load-sentinel').getBoundingClientRect().top<innerHeight+800)setTimeout(loadMoreStories,80);
 }
 async function rssAPI(operation,url) {
@@ -205,7 +214,7 @@ async function rssAPI(operation,url) {
   if(!response.ok||!result)throw new Error(result?.error||'El servicio RSS no está disponible.');
   return result;
 }
-function currentArticles(id) {return data.articles.filter(a=>a.source===id&&(!a.published||Date.now()-Date.parse(a.published)<7*86400000));}
+function currentArticles(id) {return data.articles.filter(a=>a.source===id&&(!articleTime(a)||Date.now()-articleTime(a)<7*86400000));}
 async function refreshSource(id) {
   const source=sources.find(s=>s.id===id);if(!source)return false;
   const checked=new Date().toISOString();
@@ -214,7 +223,7 @@ async function refreshSource(id) {
     if(kept.length&&keepNewerFeed(previous,{feed:source.feed,lastSuccess:response.fetchedAt},catalog.find(s=>s.id===id)?.feed)){
       // The shared edition can be newer than an edge cache. Do not roll it back.
       const health={...previous,feed:source.feed,checked,...(response.stale?{state:'stale',message:response.error||'El medio no ha respondido.'}:{})};
-      data.status[id]=health;await saveSnapshot({id,feed:source.feed,articles:kept,health}).catch(()=>{});return health.state==='ok';
+      data.status[id]=health;await saveSnapshot({id,parserVersion:2,feed:source.feed,articles:kept,health}).catch(()=>{});return health.state==='ok';
     }
     const articles=await parseFeed(response.xml,source);
     if(!articles.length)throw new Error('El RSS responde, pero no contiene publicaciones de los últimos siete días.');
@@ -224,7 +233,7 @@ async function refreshSource(id) {
     data.articles=[...data.articles.filter(a=>a.source!==id),...articles];data.status[id]=health;
     const personal=mediaSettings.custom.find(s=>s.id===id);
     if(personal){const metadata=feedMetadata(response.xml,source.feed);if(metadata.language)personal.language=metadata.language;if(metadata.url)personal.url=metadata.url;writeStorage('extra-extra:media',mediaSettings);sources=mergeSources(catalog,mediaSettings);}
-    await saveSnapshot({id,feed:source.feed,articles,health}).catch(()=>{});
+    await saveSnapshot({id,parserVersion:2,feed:source.feed,articles,health}).catch(()=>{});
     return !response.stale;
   }catch(error){const kept=currentArticles(id),previous=data.status[id];data.articles=[...data.articles.filter(a=>a.source!==id),...kept];data.status[id]={state:kept.length?'stale':'error',count:kept.length,checked,lastSuccess:previous?.lastSuccess,message:error.message};return false;}
 }
@@ -249,11 +258,11 @@ async function liveRefresh(manual=false,ids=null) {
       // Never mark an all-failed collection as a new edition.
       const dates=targets.map(id=>data.status[id]).filter(h=>h?.state==='ok').map(h=>Date.parse(h.lastSuccess)).filter(Number.isFinite);
       if(dates.length)data.generated=new Date(Math.max(Date.parse(data.generated)||0,Math.min(...dates))).toISOString();
-      await saveSnapshot({id:'@edition',generated:data.generated}).catch(()=>{});
+      await saveSnapshot({id:'@edition',parserVersion:2,generated:data.generated}).catch(()=>{});
     }else serviceProblem='No se han podido comprobar los RSS. Se conserva la última edición; consulta el estado de los medios.';
     const newCount=data.articles.filter(a=>!previousIDs.has(a.id)).length;
     if(manual)toast(success?`${success} medios comprobados. ${newCount?newCount+' noticias nuevas.':'Sin noticias nuevas.'}`:serviceProblem);
-  }finally{liveBusy=false;liveProgress='';$('#refresh').disabled=false;render();if(panelName==='sources'&&$('#panel').open)mediaPanel.draw();scheduleAutomatic();if(pendingLive){pendingLive=false;queueLive();}}
+  }finally{await recordNews();liveBusy=false;liveProgress='';$('#refresh').disabled=false;render();if(panelName==='sources'&&$('#panel').open)mediaPanel.draw();scheduleAutomatic();if(pendingLive){pendingLive=false;queueLive();}}
 }
 async function loadNews(manual=false) {
   if(catalog.length){await liveRefresh(manual);return;}
@@ -265,15 +274,15 @@ async function loadNews(manual=false) {
     if(!Array.isArray(catalog)||!Array.isArray(data.articles))throw new Error();
     sources=mergeSources(catalog,mediaSettings);
     prefs.sources=prefs.sources===null?sources.map(s=>s.id):prefs.sources.filter(id=>sources.some(s=>s.id===id));
-    const snapshots=await readSnapshots();
+    await storyReady;const snapshots=await readSnapshots();
     for(const snapshot of snapshots){
-      if(snapshot.id==='@edition'){if(Date.parse(snapshot.generated)>Date.parse(data.generated))data.generated=snapshot.generated;continue;}
+      if(snapshot.id==='@edition'){if(snapshot.parserVersion===2&&(Date.parse(snapshot.generated)>Date.parse(data.generated)))data.generated=snapshot.generated;continue;}
       const source=sources.find(s=>s.id===snapshot.id&&s.feed===snapshot.feed);
-      if(source&&Array.isArray(snapshot.articles)&&Date.parse(snapshot.health?.lastSuccess)>=(Date.parse(data.status[source.id]?.lastSuccess)||0)){
-        data.articles=[...data.articles.filter(a=>a.source!==source.id),...snapshot.articles.filter(a=>!a.published||Date.now()-Date.parse(a.published)<7*86400000)];data.status[source.id]=snapshot.health;
+      if(snapshot.parserVersion===2&&source&&Array.isArray(snapshot.articles)&&Date.parse(snapshot.health?.lastSuccess)>=(Date.parse(data.status[source.id]?.lastSuccess)||0)){
+        data.articles=[...data.articles.filter(a=>a.source!==source.id),...snapshot.articles.filter(a=>!articleTime(a)||Date.now()-articleTime(a)<7*86400000)];data.status[source.id]=snapshot.health;
       }
     }
-    render();
+    await recordNews();render();
     const stale=!data.generated||Date.now()-Date.parse(data.generated)>=AUTO_REFRESH;
     if(stale||mediaSettings.custom.length||Object.keys(mediaSettings.overrides).length||manual)await liveRefresh(manual);
     else lastLiveCheck=Date.parse(data.generated);
@@ -288,15 +297,16 @@ const mediaPanel=createMediaPanel({
   changed:()=>{sources=mergeSources(catalog,mediaSettings);persist();render();},
   select:ids=>{const newly=ids.filter(id=>!prefs.sources?.includes(id));prefs.sources=[...new Set(ids)];persist();limit=36;render();if(newly.length)queueLive();},
   removeSource:id=>{prefs.sources=prefs.sources.filter(s=>s!==id);data.articles=data.articles.filter(a=>a.source!==id);delete data.status[id];removeSnapshot(id);},
-  refreshSource:async id=>{const result=await refreshSource(id);render();return result;},api:rssAPI,notify:toast,date:dateLabel,download,refresh:queueLive
+  refreshSource:async id=>{const result=await refreshSource(id);await recordNews();render();return result;},api:rssAPI,notify:toast,date:dateLabel,download,refresh:queueLive
 });
 function renderSourcesPanel(){mediaPanel.render();}
 function openPanel(name) {
   closeMenu();
   panelName = name;
-  const titles = {sources:'Medios',filters:'Filtros y presentación',appearance:'Lectura',about:'Acerca de Extra Extra',search:'Buscar noticias',install:'Instalar Extra Extra'};
+  const titles = {stories:'Historias seguidas',sources:'Medios',filters:'Filtros y presentación',appearance:'Lectura',about:'Acerca de Extra Extra',search:'Buscar noticias',install:'Instalar Extra Extra'};
   $('#panel-title').textContent = titles[name];
   if (name === 'sources') renderSourcesPanel();
+  if (name === 'stories') renderStoriesPanel({store:storyStore,open:coverageView.open,changed:render});
   if (name === 'filters') renderFiltersPanel();
   if (name === 'appearance') renderAppearancePanel();
   if (name === 'about') renderAboutPanel();
@@ -327,6 +337,8 @@ function renderFiltersPanel() {
   $('#apply-filters').onclick=()=>{$('#panel').close();window.scrollTo({top:0});};
   renderPersonalTools();
   renderTerritoryTools();
+  $('#filter-language').closest('.settings-field').insertAdjacentHTML('afterend',`<label class="settings-field"><span>Tipo editorial</span><select id="filter-kind"><option value="">Todos los tipos</option><option value="news">Información</option><option value="opinion">Opinión</option><option value="sponsored">Patrocinado</option><option value="unknown">Sin etiqueta editorial</option></select></label><p class="small-note">Clasificación basada en etiquetas y metadatos del medio; no evalúa su veracidad.</p>`);
+  $('#filter-kind').value=filters.kind;$('#filter-kind').onchange=e=>{filters.kind=e.target.value;limit=36;render();};
 }
 function renderTerritoryTools() {
   const options=first=>`<option value="">${first}</option>`+territories.map(t=>`<option value="${t.id}">${t.parent?'↳ ':''}${esc(t.name)}</option>`).join('');
@@ -351,7 +363,7 @@ function renderPersonalTools() {
     const name=$('#frontpage-name').value.trim();if(!name){toast('Escribe un nombre para la portada.');return;}
     const existing=frontpages.find(p=>normalize(p.name)===normalize(name));
     if(!existing&&frontpages.length>=30){toast('Puedes guardar hasta 30 portadas.');return;}
-    const entry={id:existing?.id||`page-${Date.now()}`,name,sources:[...(prefs.sources||[])],filters:{query:filters.query,category:filters.category,language:filters.language,territory:filters.territory,hours:filters.hours,unread:filters.unread},group:prefs.group,order:sortOrder,sourceLimit:prefs.sourceLimit,topicLimit:prefs.topicLimit};
+    const entry={id:existing?.id||`page-${Date.now()}`,name,sources:[...(prefs.sources||[])],filters:{query:filters.query,category:filters.category,language:filters.language,territory:filters.territory,kind:filters.kind,hours:filters.hours,unread:filters.unread},group:prefs.group,order:sortOrder,sourceLimit:prefs.sourceLimit,topicLimit:prefs.topicLimit};
     frontpages=frontpages.filter(p=>p.id!==entry.id);frontpages.push(entry);activeFrontpage=entry.id;writeStorage('extra-extra:frontpages',frontpages);renderFiltersPanel();toast('Portada guardada.');
   };
   $('#remove-frontpage').onclick=()=>{frontpages=frontpages.filter(p=>p.id!==activeFrontpage);activeFrontpage='';writeStorage('extra-extra:frontpages',frontpages);renderFiltersPanel();toast('Portada eliminada.');};
@@ -369,7 +381,7 @@ function renderAppearancePanel() {
   $('#font').onchange = event => { prefs.font=event.target.value;persist();applyAppearance(); };
   $('#font-size').oninput = event => { prefs.size=Number(event.target.value);$('#size-output').textContent=`${prefs.size} px`;persist();applyAppearance(); };
   $('#show-images').onchange = event => { prefs.images=event.target.checked;persist();applyAppearance();render(); };
-  $('#export-settings').onclick = () => download('extra-extra-copia.json',JSON.stringify({version:1,preferences:prefs,saved,read,frontpages,mutes,media:mediaSettings},null,2),'application/json');
+  $('#export-settings').onclick = () => download('extra-extra-copia.json',JSON.stringify({version:1,preferences:prefs,saved,read,frontpages,mutes,media:mediaSettings,followed:storyStore.watches},null,2),'application/json');
   $('#import-settings').onclick = () => $('#settings-file').click();
   $('#settings-file').onchange = importSettings;
   const ranges=[['line-height','Interlineado','lineHeight',1.3,2.4,.1,''],['reader-width','Ancho del texto','readerWidth',440,960,20,' px'],['reader-margin','Márgenes del lector','readerMargin',12,64,2,' px'],['paragraph-gap','Separación entre párrafos','paragraphGap',.4,2,.1,' em']];
@@ -378,7 +390,7 @@ function renderAppearancePanel() {
   for(const [id,key] of [['high-contrast','highContrast'],['large-controls','largeControls'],['reduce-motion','reduceMotion']])$('#'+id).onchange=event=>{prefs[key]=event.target.checked;persist();applyAppearance();layoutNews();};
 }
 function renderAboutPanel() {
-  $('#panel-content').innerHTML = `<div class="about-hero"><img src="favicon.png" alt="Un joven con boina alza un periódico"><p>Extra Extra</p></div><div class="about-copy"><p>Antes alguien recorría las calles con un periódico en alto y un «¡Extra, extra!». Hoy las noticias llegan desde todas partes. Este proyecto quiere devolverles un lugar sencillo y tranquilo.</p><p>Un pequeño homenaje a los lectores RSS y a Google Currents: eliges tus medios, reúnes sus noticias y lees a tu ritmo. Sin una cuenta, sin una portada impuesta.</p><p>Extra Extra es gratuito y de código abierto. Las noticias y fotografías pertenecen a sus respectivos autores. Mostramos lo que el medio distribuye en su RSS: a veces un extracto, a veces más texto. Siempre encontrarás el enlace a la publicación original. El proyecto no elimina muros de pago ni garantiza acceso gratuito a todos los artículos.</p><p>La recogida en GitHub está programada cada 10 minutos, aunque sus ejecuciones pueden retrasarse. Al abrir la web y mientras la lees, un servicio de apoyo comprueba los RSS cada 10 minutos. Si una fuente falla, se conserva su última edición y se indica en Medios. Solo se consulta el contenido público distribuido en RSS.</p></div><div class="install-control"><button id="install-app" class="outline-button">Instalar en el móvil</button></div><div class="about-links"><a href="https://github.com/AlejandroPico/Xtraxtra" target="_blank" rel="noopener noreferrer">Código de Extra Extra <span>↗</span></a><a href="https://alejandropico.github.io/Portfolio/" target="_blank" rel="noopener noreferrer">Portfolio de Alejandro Pico <span>↗</span></a></div>`;
+  $('#panel-content').innerHTML = `<div class="about-hero"><img src="favicon.png" alt="Un joven con boina alza un periódico"><p>Extra Extra</p></div><div class="about-copy"><p>Antes alguien recorría las calles con un periódico en alto y un «¡Extra, extra!». Hoy las noticias llegan desde todas partes. Este proyecto quiere devolverles un lugar sencillo y tranquilo.</p><p>Un pequeño homenaje a los lectores RSS y a Google Currents: eliges tus medios, reúnes sus noticias y lees a tu ritmo. Sin una cuenta, sin una portada impuesta.</p><p>Extra Extra es gratuito y de código abierto. Las noticias y fotografías pertenecen a sus respectivos autores. Mostramos lo que el medio distribuye en su RSS: a veces un extracto, a veces más texto. Siempre encontrarás el enlace a la publicación original. El proyecto no elimina muros de pago ni garantiza acceso gratuito a todos los artículos.</p><p>La recogida en GitHub está programada cada 10 minutos, aunque sus ejecuciones pueden retrasarse. Al abrir la web y mientras la lees, un servicio de apoyo comprueba los RSS cada 10 minutos. Si una fuente falla, se conserva su última edición y se indica en Medios. Se consulta el contenido público distribuido en RSS y, cuando lo solicitas, los metadatos públicos de las coberturas.</p></div><div class="install-control"><button id="install-app" class="outline-button">Instalar en el móvil</button></div><div class="about-links"><a href="https://github.com/AlejandroPico/Xtraxtra" target="_blank" rel="noopener noreferrer">Código de Extra Extra <span>↗</span></a><a href="https://alejandropico.github.io/Portfolio/" target="_blank" rel="noopener noreferrer">Portfolio de Alejandro Pico <span>↗</span></a></div>`;
 }
 function download(name, contents, mime) {
   const url=URL.createObjectURL(new Blob([contents],{type:mime}));
@@ -387,10 +399,11 @@ function download(name, contents, mime) {
 async function importSettings(event) {
   const file=event.target.files[0];if(!file)return;
   try {
-    if(file.size>8000000)throw new Error();
+    if(file.size>64000000)throw new Error();
     const backup=JSON.parse(await file.text());
     if(backup.version!==1 || !backup.preferences || !Array.isArray(backup.saved))throw new Error();
     const p=backup.preferences;
+    if(Array.isArray(backup.followed))await storyStore.importWatches(backup.followed);
     if(backup.media){const imported=sourceSettings(backup.media);mediaSettings=sourceSettings({custom:[...mediaSettings.custom,...imported.custom],folders:[...mediaSettings.folders,...imported.folders],assignments:{...mediaSettings.assignments,...imported.assignments},priorities:{...mediaSettings.priorities,...imported.priorities},overrides:{...mediaSettings.overrides,...imported.overrides}});sources=mergeSources(catalog,mediaSettings);writeStorage('extra-extra:media',mediaSettings);}
     if(territories.some(t=>t.id===p.nearby)||p.nearby==='')prefs.nearby=p.nearby;
     Object.assign(prefs,readingPreferences({...prefs,...p}));
@@ -415,7 +428,8 @@ function openReader(id, cluster = null) {
   if(!article)return;
   currentArticle=article;currentCluster=found || {articles:[article]};
   if(!read.includes(id)){read.push(id);read=read.slice(-5000);writeStorage('extra-extra:read',read);}
-  drawReader();
+  const followed=storyStore.find(currentCluster);if(followed)storyStore.seen(followed.id,currentArticle);
+  drawReader();updateStoryUI();
   if(!$('#reader').open)$('#reader').showModal();
   $('#reader').scrollTop=0;
   // Keep the visible card in place until closing the reader, especially in unread mode.
@@ -425,13 +439,16 @@ function drawReader(translated = null) {
   const text=translated?.text || a.content || a.summary;
   const image=safeURL(a.image);
   const estimate=readingEstimate(a);
+  const editorial=contentKind(a);
   const readingTime=estimate?` · ≈${estimate.minutes} min de lectura${estimate.excerpt?' del extracto':''}`:'';
   const translateURL=`https://translate.google.com/translate?sl=auto&tl=es&u=${encodeURIComponent(a.url)}`;
-  $('#reader-content').innerHTML=`<div class="reader-meta">${esc(s.name)} · ${esc(dateLabel(a.published))} · ${esc(a.language.toUpperCase())}${readingTime}</div><h1 lang="${translated?'es':esc(a.language)}">${esc(translated?.title||a.title)}</h1>${image&&prefs.images?`<img class="reader-image" src="${esc(image)}" alt="" referrerpolicy="no-referrer">`:''}<p class="reader-excerpt">${a.content?'Texto distribuido por el medio en su RSS. Puede no incluir el artículo completo.':'Extracto distribuido por el medio. Continúa en la publicación original para leer el artículo.'}${translated?' Traducción automática al español.':''}</p><div class="reader-text" lang="${translated?'es':esc(a.language)}">${String(text||'Este medio solo ha compartido el titular.').split(/\n+/).filter(Boolean).map(p=>`<p>${esc(p)}</p>`).join('')}</div><div class="reader-links"><a class="primary-link" href="${esc(safeURL(a.url))}" target="_blank" rel="noopener noreferrer">Leer en ${esc(s.name)} ${icon('arrow')}</a>${a.language!=='es'?`<button id="translate-local" class="outline-button">${translated?'Ver original':'Traducir al español'}</button><a href="${esc(translateURL)}" target="_blank" rel="noopener noreferrer" class="text-button">Abrir traducción web ↗</a>`:''}</div><p id="translation-status" class="small-note" role="status">${a.language!=='es'?'La traducción local depende del navegador. La alternativa web abre Google Translate y comparte con él la URL del artículo. Los límites de acceso del medio pueden seguir aplicándose.':''}</p>${cluster.articles.length>1?`<section class="coverage-list"><h2>Coberturas de la noticia</h2><p class="small-note">Agrupación automática por similitud de titulares. Puedes desactivarla en Filtros.</p>${cluster.articles.map(other=>`<button data-coverage-id="${esc(other.id)}"><small>${esc(sourceFor(other).name)} · ${relativeTime(other.published)}</small><span>${esc(other.title)}</span></button>`).join('')}</section>`:''}`;
+  $('#reader-content').innerHTML=`<div class="reader-meta">${esc(s.name)} · ${a.published?'Publicada '+esc(dateLabel(a.published)):'Publicación sin fecha'}${a.updated?' · Actualizada '+esc(dateLabel(a.updated)):''} · ${esc(a.language.toUpperCase())}${readingTime}${editorial.type!=='unknown'?' · '+esc(editorial.label):''}</div><h1 lang="${translated?'es':esc(a.language)}">${esc(translated?.title||a.title)}</h1>${image&&prefs.images?`<img class="reader-image" src="${esc(image)}" alt="" referrerpolicy="no-referrer">`:''}<p class="reader-excerpt">${a.content?'Texto distribuido por el medio en su RSS. Puede no incluir el artículo completo.':'Extracto distribuido por el medio. Continúa en la publicación original para leer el artículo.'}${translated?' Traducción automática al español.':''}</p><div class="reader-text" lang="${translated?'es':esc(a.language)}">${String(text||'Este medio solo ha compartido el titular.').split(/\n+/).filter(Boolean).map(p=>`<p>${esc(p)}</p>`).join('')}</div><div class="reader-links"><a class="primary-link" href="${esc(safeURL(a.url))}" target="_blank" rel="noopener noreferrer">Leer en ${esc(s.name)} ${icon('arrow')}</a>${a.language!=='es'?`<button id="translate-local" class="outline-button">${translated?'Ver original':'Traducir al español'}</button><a href="${esc(translateURL)}" target="_blank" rel="noopener noreferrer" class="text-button">Abrir traducción web ↗</a>`:''}</div><p id="translation-status" class="small-note" role="status">${a.language!=='es'?'La traducción local depende del navegador. La alternativa web abre Google Translate y comparte con él la URL del artículo. Los límites de acceso del medio pueden seguir aplicándose.':''}</p>${cluster.articles.length>1?`<section class="coverage-list"><h2>Coberturas de la noticia</h2><p class="small-note">Agrupación aproximada por titulares, entidades, suceso y fecha, también entre idiomas. Puedes desactivarla en Filtros.</p>${cluster.articles.map(other=>`<button data-coverage-id="${esc(other.id)}"><small>${esc(sourceFor(other).name)} · ${relativeTime(other.published)}</small><span>${esc(other.title)}</span></button>`).join('')}</section>`:''}`;
   $('#reader-content').querySelector('img')?.addEventListener('error',event=>event.target.remove(),{once:true});
   $('#reader-content').querySelectorAll('[data-coverage-id]').forEach(button=>button.onclick=()=>openReader(button.dataset.coverageId,cluster));
   if($('#translate-local'))$('#translate-local').onclick=()=>translated?drawReader():translateArticle();
-  updateReaderSave();
+  $('#reader-content').insertAdjacentHTML('beforeend','<div class="reader-links"><button id="open-story-context" class="outline-button">Coberturas y contexto</button></div><details class="context-detail"><summary>Por qué aparece en portada</summary><ul class="rank-reasons">'+rankingReasons(cluster,rankingContext(cluster)).map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul></details>');
+  $('#open-story-context').onclick=()=>coverageView.open(currentCluster);
+  updateReaderSave();updateStoryUI();
 }
 async function translateArticle() {
   const article=currentArticle;
@@ -448,6 +465,25 @@ async function translateArticle() {
   finally{translator?.destroy();if(button.isConnected)button.disabled=false;}
 }
 
+const storyStore=createStoryStore({sourceName:article=>sourceFor(article).name,warn:toast});
+const storyReady=storyStore.init().then(()=>{updateStoryUI();if(panelName==='stories'&&$('#panel').open)renderStoriesPanel({store:storyStore,open:coverageView.open,changed:render});});
+function rankingContext(cluster){return {prioritySources:mediaSettings.priorities,nearby:prefs.nearby,nearbyMatches:!!prefs.nearby&&cluster.articles.some(a=>matchesTerritory(a,prefs.nearby)),order:sortOrder,position:allClusters.findIndex(c=>c.id===cluster.id)+1};}
+function updateStoryUI(){
+  $('#stories-count').textContent=storyStore.watches.reduce((sum,w)=>sum+watchUnread(w),0)||'';
+  if(currentCluster){const followed=storyStore.find(currentCluster);$('#reader-follow').setAttribute('aria-pressed',!!followed);$('#reader-follow').setAttribute('aria-label',followed?'Dejar de seguir historia':'Seguir historia');$('#reader-follow').title=followed?'Dejar de seguir historia':'Seguir historia';}
+}
+async function recordNews(){
+  for(const article of data.articles){const metadata=storyStore.observation(article)?.publicMetadata;if(!article.publicMetadata&&metadata&&Date.now()-Date.parse(metadata.checkedAt)<86400000)article.publicMetadata=metadata;}
+  await storyStore.observe(data.articles.filter(a=>prefs.sources?.includes(a.source)));updateStoryUI();
+}
+const coverageView=createCoverageView({
+  store:storyStore,source:sourceFor,date:dateLabel,notify:toast,changed:render,ranking:rankingContext,
+  articles:all=>data.articles.filter(a=>(all||prefs.sources?.includes(a.source))&&!isMuted(a,mutes)),
+  openArticle:(article,cluster)=>openReader(article.id,cluster),
+  inspect:async article=>{const metadata=await rssAPI('inspect',article.url);article.publicMetadata=metadata;for(const a of data.articles)if(a.url===article.url)a.publicMetadata=metadata;await storyStore.observe([article]);return metadata;}
+});
+$('#reader-context').onclick=()=>currentCluster&&coverageView.open(currentCluster);
+$('#reader-follow').onclick=()=>{if(!currentCluster)return;const watch=storyStore.find(currentCluster);if(watch){storyStore.remove(watch.id);toast('Se ha dejado de seguir esta historia.');}else{try{storyStore.follow(currentCluster);toast('Historia seguida.');}catch(error){toast(error.message);}}render();};
 initInterface({openPanel,refresh:()=>loadNews(true),loadMore:loadMoreStories});
 hydrateIcons();applyAppearance();renderCategories();
 $('#edition-date').textContent=new Intl.DateTimeFormat('es',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());
@@ -455,11 +491,12 @@ document.addEventListener('click',event=>{
   const panel=event.target.closest('[data-panel]');if(panel){openPanel(panel.dataset.panel);return;}
   const category=event.target.closest('[data-category]');if(category){activeFrontpage='';filters.category=category.dataset.category;filters.topic=null;filters.topicName='';limit=36;renderCategories();render();return;}
   const view=event.target.closest('[data-view]');if(view){prefs.view=view.dataset.view;persist();applyAppearance();render();return;}
+  const compare=event.target.closest('[data-compare]');if(compare){const cluster=allClusters.find(c=>c.articles.some(a=>a.id===compare.dataset.compare));if(cluster)coverageView.open(cluster);return;}
   const open=event.target.closest('[data-open]');if(open){openReader(open.dataset.open);return;}
   const save=event.target.closest('[data-save]');if(save){const a=data.articles.find(a=>a.id===save.dataset.save)||saved.find(a=>a.id===save.dataset.save);if(a)saveArticle(a);return;}
   if(event.target.closest('#clear-filters,#reset-empty')){resetFilters();if(!prefs.sources.length){prefs.sources=sources.map(s=>s.id);persist();render();}}
 });
-document.addEventListener('change',event=>{if(event.target.matches('#sort,#group,#filter-saved,#filter-period,#filter-language,#filter-unread,#filter-territory,#nearby-territory,#source-limit,#topic-limit,[data-source]')){activeFrontpage='';if($('#frontpage-select'))$('#frontpage-select').value='';}});
+document.addEventListener('change',event=>{if(event.target.matches('#sort,#group,#filter-saved,#filter-period,#filter-language,#filter-unread,#filter-territory,#filter-kind,#nearby-territory,#source-limit,#topic-limit,[data-source]')){activeFrontpage='';if($('#frontpage-select'))$('#frontpage-select').value='';}});
 document.addEventListener('input',event=>{if(event.target.id==='search')activeFrontpage='';});
 $('#close-panel').onclick=()=>$('#panel').close();
 $('#close-reader').onclick=()=>$('#reader').close();

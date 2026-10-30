@@ -52,7 +52,7 @@ def clean(value, limit=18000):
 def safe_url(value, base=''):
     result = urllib.parse.urljoin(base, (value or '').strip())
     parsed = urllib.parse.urlparse(result)
-    return result if parsed.scheme in ('https', 'http') and parsed.hostname and not parsed.username else ''
+    return result if parsed.scheme in ('https', 'http') and parsed.hostname and not parsed.username and not parsed.password else ''
 
 
 def local(tag):
@@ -62,7 +62,7 @@ def local(tag):
 def child_text(node, names):
     for name in names:
         for child in node:
-            if local(child.tag) == name and child.text:
+            if local(child.tag) == name and 'search.yahoo.com/mrss' not in child.tag and child.text:
                 return child.text
     return ''
 
@@ -100,8 +100,10 @@ def parse_feed(raw, source, now=None):
         if not title or not link or link in seen:
             continue
         seen.add(link)
-        date = parse_date(child_text(item, ['pubdate', 'published', 'date', 'updated']), now)
-        if date and now - date > MAX_AGE:
+        date = parse_date(child_text(item, ['pubdate', 'published', 'date']), now)
+        modified = parse_date(child_text(item, ['updated', 'modified']), now)
+        latest = max(d for d in [date, modified] if d) if date or modified else None
+        if latest and now - latest > MAX_AGE:
             continue
         summary_raw = child_text(item, ['description', 'summary'])
         body_raw = child_text(item, ['encoded', 'content'])
@@ -122,11 +124,27 @@ def parse_feed(raw, source, now=None):
             match = re.search(r'<img[^>]+src=[\"\']([^\"\']+)', body_raw or summary_raw, re.I)
             if match:
                 image = safe_url(html.unescape(match[1]), link)
-        categories = [clean(el.text, 100) for el in item if local(el.tag) == 'category' and el.text]
+        references = []
+        for match in re.finditer(r'<a\b[^>]*href=[\"\']([^\"\']+)[\"\'][^>]*>(.*?)</a>', body_raw or summary_raw, re.I | re.S):
+            reference = safe_url(html.unescape(match[1]), link)
+            if reference and reference != link:
+                references.append({'url': reference, 'label': clean(match[2], 180), 'relation': 'link'})
+            if len(references) >= 16:
+                break
+        origin = next((el for el in item if local(el.tag) == 'source'), None)
+        if origin is not None and origin.get('url'):
+            reference = safe_url(origin.get('url'), link)
+            if reference:
+                references.insert(0, {'url': reference, 'label': clean(''.join(origin.itertext()), 180), 'relation': 'source'})
+        authors = [clean(child_text(el, ['name']) or ''.join(el.itertext()), 160) for el in item if local(el.tag) in ('creator', 'author')]
+        categories = [clean(el.text, 100) for el in item if local(el.tag) == 'category' and 'search.yahoo.com/mrss' not in el.tag and el.text]
         articles.append({
             'id': hashlib.sha256(link.encode()).hexdigest()[:20],
             'title': title, 'url': link, 'source': source['id'],
             'language': source['language'], 'published': date.isoformat() if date else None,
+            'updated': modified.isoformat() if modified else None, 'authors': authors[:8], 'references': references[:16],
+            'sourceLabel': clean(''.join(origin.itertext()), 160) if origin is not None else '',
+            'editorialType': clean(child_text(item, ['type']), 80),
             'summary': summary or body[:550], 'content': body if len(body) > len(summary) + 120 else '',
             'image': image, 'categories': categories[:8],
         })
@@ -151,7 +169,7 @@ def fetch_source(source, previous):
             raise ValueError('El feed no contiene noticias recientes')
         return articles, {'state': 'ok', 'count': len(articles), 'checked': now.isoformat(), 'lastSuccess': now.isoformat()}
     except Exception as error:
-        articles = [article for article in previous.get('articles', []) if article['source'] == source['id'] and article.get('published') and now - dt.datetime.fromisoformat(article['published']) <= MAX_AGE]
+        articles = [article for article in previous.get('articles', []) if article['source'] == source['id'] and (article.get('updated') or article.get('published')) and now - dt.datetime.fromisoformat(article.get('updated') or article['published']) <= MAX_AGE]
         old = previous.get('status', {}).get(source['id'], {})
         return articles, {'state': 'stale' if articles else 'error', 'count': len(articles), 'checked': now.isoformat(), 'lastSuccess': old.get('lastSuccess'), 'message': str(error)[:180]}
 

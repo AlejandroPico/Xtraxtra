@@ -1,4 +1,5 @@
-// Public RSS retrieval only. Never forward cookies or credentials.
+import {pageMetadata} from './page-metadata.mjs';
+// Public RSS and publisher metadata only. Never forward cookies or credentials.
 export const FRESH_MS=600000;
 const memory=new Map();
 let memoryBytes=0;
@@ -21,7 +22,7 @@ async function checkDNS(host,signal) {
   const data=await r.json(),ips=(data.Answer||[]).filter(a=>a.type===1||a.type===28);
   if(!ips.length||ips.some(a=>!isPublicAddress(a.data)))throw new Error('El dominio no corresponde a una web pública accesible.');
 }
-export async function retrieve(value,maxBytes=4000000) {
+export async function retrieve(value,maxBytes=4000000,headOnly=false) {
   let url=publicURL(value);const signal=AbortSignal.timeout(14000);
   for(let i=0;i<=4;i++) {
     await checkDNS(new URL(url).hostname,signal);
@@ -29,8 +30,8 @@ export async function retrieve(value,maxBytes=4000000) {
     if([301,302,303,307,308].includes(r.status)){await r.body?.cancel();url=publicURL(r.headers.get('Location'),url);continue;}
     if(!r.ok){await r.body?.cancel();throw new Error(`El servidor responde HTTP ${r.status}.`);}
     const reader=r.body?.getReader();if(!reader)throw new Error('Respuesta vacía.');
-    let length=0;const chunks=[];
-    while(true){const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>maxBytes){await reader.cancel();throw new Error('El canal supera el tamaño permitido.');}chunks.push(value);}
+    let length=0,tail='';const chunks=[];
+    while(true){const {done,value}=await reader.read();if(done)break;length+=value.length;chunks.push(value);if(headOnly){const part=tail+new TextDecoder().decode(value);tail=part.slice(-20);if(length>=maxBytes||/<\/head\s*>/i.test(part)){await reader.cancel();break;}}else if(length>maxBytes){await reader.cancel();throw new Error('El canal supera el tamaño permitido.');}}
     const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.length;}
     const hint=new TextDecoder().decode(bytes.slice(0,300)),charset=r.headers.get('content-type')?.match(/charset=["']?([\w-]+)/i)?.[1]||hint.match(/<\?xml[^>]*encoding=["']([^"']+)/i)?.[1]||'utf-8';
     let text;try{text=new TextDecoder(charset).decode(bytes);}catch{text=new TextDecoder().decode(bytes);}
@@ -73,6 +74,12 @@ export async function discover(value) {
   if(!candidates.length){const site=new URL(r.url);for(const path of ['/feed/','/rss/','/index.xml'])candidates.push({url:new URL(path,site.origin).href,title:''});}
   const checked=await Promise.all(candidates.map(async c=>{try{const feed=await getFeed(c.url);return {url:c.url,title:c.title||feed.title};}catch{return null;}}));return checked.filter(Boolean);
 }
+export async function inspectPage(value){
+  const url=publicURL(value),key=await keyFor('metadata:'+url),old=await readCache(key);
+  if(old&&Date.now()-Date.parse(old.checkedAt)<15*60000)return {...old,cached:true};
+  try{const page=await retrieve(url,1500000,true),result={url:page.url,checkedAt:new Date().toISOString(),...pageMetadata(page.text,page.url)};await writeCache(key,result);return result;}
+  catch(error){if(old)return {...old,stale:true,error:error.message};throw error;}
+}
 export async function handleRSS(request,operation) {
   const origin=request.headers.get('Origin'),own=new URL(request.url).origin;
   const headers={'Content-Type':'application/json;charset=utf-8','X-Content-Type-Options':'nosniff','Cache-Control':'no-store',Vary:'Origin'};
@@ -84,6 +91,6 @@ export async function handleRSS(request,operation) {
   try {
     if(operation==='health')return Response.json({service:'Extra Extra RSS',refreshMinutes:10},{headers});
     const value=new URL(request.url).searchParams.get('url');if(!value)throw new Error('Falta la dirección del canal o de la web.');
-    return Response.json(operation==='discover'?{feeds:await discover(value)}:await getFeed(value),{headers});
+    return Response.json(operation==='discover'?{feeds:await discover(value)}:operation==='inspect'?await inspectPage(value):await getFeed(value),{headers});
   }catch(error){return Response.json({error:error.name==='TimeoutError'?'El medio ha tardado demasiado en responder.':String(error.message).slice(0,240)},{status:422,headers});}
 }

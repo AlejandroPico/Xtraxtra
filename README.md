@@ -76,7 +76,7 @@ Las pruebas cubren reconocimiento de gestos (sin confundir desplazamientos horiz
 
 ## Tanda 1 (1.2)
 
-El plan de las 45 mejoras seleccionadas está en [docs/TANDAS.md](docs/TANDAS.md). Las tandas 1 y 2 están implementadas; las tandas 3 y 4 quedan pendientes.
+El plan de las 45 mejoras seleccionadas está en [docs/TANDAS.md](docs/TANDAS.md). Las tandas 1, 2 y 3 están implementadas; la tanda 4 queda pendiente.
 
 La portada utiliza una sola franja con dos áreas horizontales táctiles: secciones generales y radar. El total de noticias aparece junto a la hora de actualización. La carga añade noticias automáticamente al acercarse al final, sin botón ni pie de paginación. Las noticias se agrupan por día de calendario local, con una separación completa al pasar a ayer y fechas anteriores. El orden por relevancia o cobertura se aplica dentro de cada día. Se recorre la edición disponible, no un archivo histórico ilimitado.
 
@@ -93,3 +93,13 @@ Medios incorpora descubrimiento de RSS/Atom, importación OPML de fuentes fuera 
 Filtros incorpora territorio del artículo y una zona manual para dar prioridad a información cercana. El detector solo usa menciones del contenido, no el origen del periódico. Los nombres de países y territorios proceden de Unicode CLDR; véase [atribución](docs/TERRITORIOS.md). No utiliza geolocalización.
 
 El servicio está en https://xtraxtra-rss-apico.alejandropico.chatgpt.site y su lógica reproducible en [services/rss](services/rss/README.md). No se han configurado claves privadas en el cliente. Se consultan exclusivamente RSS/Atom públicos, con caché de diez minutos, límites de tamaño y tiempo, validación de dominios y redirecciones y CORS limitado al portal y su desarrollo local. No existe garantía de disponibilidad ilimitada de servicios gratuitos.
+
+## Tanda 3 (1.4)
+
+La portada agrupa coberturas por entidades, sucesos y proximidad temporal, con comprobaciones de cifras y lugares y apoyo entre idiomas. No utiliza traducción externa ni IA de pago. Las agrupaciones son aproximadas y pueden desactivarse. El orden por relevancia reduce el peso de fragmentos RSS repetidos y explica sus factores, respetando el orden por días y las preferencias del lector.
+
+Comparar abre dos textos RSS en paralelo, con selección de medios. Qué añade destaca fragmentos literales diferentes. Cronología diferencia publicación, actualización indicada por el medio y cambios observados en este dispositivo. Los créditos de agencia y coincidencias de texto se muestran sin certificar independencia editorial.
+
+Seguir historia conserva coberturas y novedades en IndexedDB. Historias permite renombrar, consultar, marcar al día o dejar de seguir. Hay límites de 30 historias, 40 coberturas por historia y 12 cambios por artículo; los textos conservados se limitan a 6.000 caracteres. La copia JSON incluye las historias y admite archivos de hasta 64 MB. No es un archivo completo ni un servicio de notificaciones.
+
+Acceso y fuentes reúne referencias enlazadas por los RSS y permite consultar metadatos públicos de las páginas, en tandas de ocho. La consulta comparte esas URL con el servicio de apoyo. Se leen declaraciones JSON-LD como [isAccessibleForFree](https://schema.org/isAccessibleForFree), [citation](https://schema.org/citation) y tipos editoriales, sin extraer `articleBody`, ejecutar scripts ni evadir accesos restringidos. Un dato ausente se muestra como desconocido. Las declaraciones de acceso no garantizan disponibilidad en todos los países ni sustituyen los requisitos del medio. La clasificación editorial usa etiquetas explícitas; no evalúa la veracidad.

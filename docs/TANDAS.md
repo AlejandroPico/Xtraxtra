@@ -1,6 +1,6 @@
 # Mejoras seleccionadas: cuatro tandas
 
-Selección del usuario del 29 de octubre de 2026. Se conservan los números de `IDEAS.md`. El 39 se pidió dos veces y cuenta una sola: son **45 mejoras**. Las tandas 1 y 2 están implementadas. Las tandas 3 y 4 se realizarán cuando el usuario las pida.
+Selección del usuario del 29 de octubre de 2026. Se conservan los números de `IDEAS.md`. El 39 se pidió dos veces y cuenta una sola: son **45 mejoras**. Las tandas 1, 2 y 3 están implementadas. La tanda 4 se realizará cuando el usuario la pida.
 
 ## Ajustes inmediatos de la portada — implementados
 
@@ -50,7 +50,7 @@ El servicio público de apoyo es https://xtraxtra-rss-apico.alejandropico.chatgp
 
 GitHub programa su edición a los minutos 3, 13, 23, 33, 43 y 53 de cada hora. Sus retrasos se cubren mediante consultas desde la página abierta y al volver a ella. Los RSS personales se guardan en este navegador (hasta 120, con 30 carpetas); sus noticias se almacenan en IndexedDB. Los ajustes y fuentes forman parte de la copia JSON. Las fuentes con errores conservan su edición anterior y no se falsifica una nueva fecha cuando todas fallan.
 
-## Tanda 3 — coberturas e historias — pendiente
+## Tanda 3 — coberturas e historias — implementada
 
 - **19.** Agrupación más inteligente.
 - **20.** Agrupación entre idiomas.
@@ -65,7 +65,17 @@ GitHub programa su edición a los minutos 3, 13, 23, 33, 43 y 53 de cada hora. S
 - **29.** Diferenciación entre información, opinión y contenido patrocinado.
 - **30.** Explicación de la posición en portada.
 
-Conservar las atribuciones y los enlaces. No presentar hipótesis como hechos, ni una clasificación automática como una medida infalible de veracidad. Las alternativas abiertas no eliminan muros de pago.
+Acceso: el botón «Comparar» de las fichas abre una vista con dos textos RSS seleccionables, detalles propios, cronología y fuentes. Cada lector también permite abrir «Coberturas y contexto» y consultar «Por qué aparece en portada». «Seguir historia» añade una entrada a Historias, con nombre editable, novedades, marcado al día y cronología conservada.
+
+La agrupación relaciona entidades, expresiones de sucesos y fechas entre idiomas; mantiene comprobaciones de cifras y lugares. Utiliza reglas locales y diccionarios, sin IA de pago. Es aproximada, no reconoce todas las paráfrasis y puede relacionar ángulos distintos de un mismo suceso. La agrupación se puede desactivar en Filtros.
+
+Los detalles son fragmentos literales diferentes de los RSS disponibles, no hechos nuevos verificados. Las coincidencias comparan texto RSS y créditos de agencia explícitos; no certifican independencia editorial. Los enlaces a referencias proceden del RSS y de declaraciones estructuradas del medio. La primera publicación disponible no demuestra ser la fuente original.
+
+«Comprobar acceso y referencias» consulta las URL al servicio de apoyo, hasta ocho por tanda. Examina la cabecera pública y metadatos del artículo, sin devolver su cuerpo ni atravesar suscripciones. El acceso libre/restringido y el género se atribuyen al medio; si no se declaran, quedan sin especificar. Las alternativas no eliminan muros de pago. Puede ampliarse la búsqueda a otros medios del catálogo.
+
+Las fechas de publicación y actualización se conservan por separado. La cronología distingue fechas del RSS, declaraciones de la web y cambios observados localmente. Una detección local no se presenta como hora de edición del periódico.
+
+El historial vive en IndexedDB de este navegador: hasta 30 historias, 40 coberturas conservadas por historia y 12 cambios observados por artículo. Las copias JSON incluyen las historias. El seguimiento recoge novedades al abrir o actualizar la aplicación; no envía avisos ni reconstruye periodos durante los que no se consultaron fuentes. Los textos guardados de historias pueden ser extractos de hasta 6.000 caracteres. La tanda 4 continúa pendiente.
 
 ## Tanda 4 — organización, idiomas, audio y avisos — pendiente
 
