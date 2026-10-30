@@ -27,7 +27,7 @@ test('El resumen automático solo vence después de su hora y una vez por día d
 });
 test('El resumen conserva extractos y enlaces, agrupa un suceso y reparte los medios',()=>{
   const title='El presidente disuelve el Parlamento y convoca elecciones en España';
-  const articles=[article('e1','one',{title}),article('e2','two',{title}),article('tech','one',{title:'Apple presenta una nueva versión de su teléfono'}),article('space','three',{title:'La NASA investiga un nuevo planeta'}),article('old','four',{published:new Date(now-86400000).toISOString()})];
+  const articles=[article('e1','one',{title}),article('e2','two',{title}),article('e3','two',{title}),article('tech','one',{title:'Apple presenta una nueva versión de su teléfono'}),article('space','three',{title:'La NASA investiga un nuevo planeta'}),article('old','four',{published:new Date(now-86400000).toISOString()})];
   const digest=digestEdition(articles,{day:calendarKey(new Date(now)),now,sourceFor:a=>({name:'Medio '+a.source})});
   assert.equal(digest.items.length,3);assert(!digest.items.some(a=>a.id==='old'));assert.equal(digest.items.filter(a=>a.title===title).length,1);assert.equal(digest.items.find(a=>a.title===title).references.length,1);assert(digest.items.every(a=>a.url.startsWith('https://')&&a.excerpt));
 });
